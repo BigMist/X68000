@@ -194,24 +194,24 @@ parameter CONF_STR = {
 	"-;",
 	"S0U,D88,FDD0;",
 	"S1U,D88,FDD1;",
-//	"SC2,HDF,SASI Hard Disk;",
-//	"SC3,RAM,SRAM;",
-//	"-;",
-//	"R9,Save FDD0 changes to SD;",
-//	"RA,Save FDD1 changes to SD;",
-//	"-;",
-//	"RB,Eject FDD0;",
-//	"RC,Eject FDD1;",
-//	"-;",
-//	"RD,Load SRAM from SD Card;",
-//	"RE,Save SRAM to SD Card;",
-//	"-;",
+	"S2U,HDF,SASI Hard Disk;",
+	"S3,RAM,SRAM;",
+	"-;",
+	"T9,Save FDD0 changes to SD;",
+	"TA,Save FDD1 changes to SD;",
+	"-;",
+	"TB,Eject FDD0;",
+	"TC,Eject FDD1;",
+	"-;",
+	"TD,Load SRAM from SD Card;",
+	"TE,Save SRAM to SD Card;",
+	"-;",
 //
-//	"P1o1,Video Frequency,60fps,Original;",
+	"O3,Video Frequency,60fps,Original;",
 //	"-;",
-//	"o0,CPU speed,Normal,Turbo;",
-//	"R7,NMI Button;",
-//	"R8,Power Button;",
+	"O4,CPU speed,Normal,Turbo;",
+	"T7,NMI Button;",
+	"T8,Power Button;",
 	"T0,Reset;",
 	"-;",
 	"V,v",`BUILD_DATE
@@ -230,7 +230,6 @@ pll pll
 	.locked(pll_locked)
 );
 
-wire clk_vid = clk_ram;
 
 // Video oscillators
 // 40.00000 - CPU/Main Oscillator
@@ -248,6 +247,8 @@ altddio_out
 	.power_up_high("OFF"),
 	.width(1)
 )
+
+
 sdramclk_ddr
 (
 	.datain_h(1'b0),
@@ -261,6 +262,7 @@ sdramclk_ddr
 	.sclr(1'b0),
 	.sset(1'b0)
 );
+
 
 /////////////////  HPS  ///////////////////////////
 
@@ -307,7 +309,7 @@ wire [21:0] gamma_bus;
 wire  [7:0] uart1_mode;
 wire [31:0] uart1_speed;
 
-//hps_io #(.CONF_STR(CONF_STR), .PS2DIV(2400), .PS2WE(1), .VDNUM(4)) hps_io
+//hps_io #(.CONF_STR(CONF_STR), .PS2DIV(1625), .PS2WE(1), .VDNUM(4)) hps_io
 //(
 //	.clk_sys(clk_sys),
 //	.HPS_BUS(HPS_BUS),
@@ -395,8 +397,12 @@ wire        i2c_ack;
 wire        i2c_end;
 `endif
 
-user_io #(.STRLEN($size(CONF_STR)>>3), .SD_IMAGES(4), .FEATURES(32'h0 | (BIG_OSD << 13) | (HDMI << 14))) user_io
-(
+
+
+
+
+user_io #(.STRLEN($size(CONF_STR)>>3), .SD_IMAGES(4), .PS2DIV(2400),.PS2BIDIR(1), .FEATURES(32'h0 | (BIG_OSD << 13) | (HDMI << 14))) user_io
+( 
     .clk_sys(clk_sys),
     .clk_sd(clk_sys),
     .SPI_SS_IO(CONF_DATA0),
@@ -445,22 +451,22 @@ user_io #(.STRLEN($size(CONF_STR)>>3), .SD_IMAGES(4), .FEATURES(32'h0 | (BIG_OSD
     .i2c_end        (i2c_end        ),
 `endif
 
-    .sd_lba(sd_lba),
-    .sd_rd(sd_rd),
-    .sd_wr(sd_wr),
-    .sd_ack(sd_ack),
-	 .sd_ack_conf  (sd_ack_conf   ),
-    .sd_dout(sd_buff_dout),
-    .sd_dout_strobe(sd_buff_wr),
-    .sd_din(sd_buff_din),
-    .sd_buff_addr(sd_buff_addr),
-    .sd_conf(sd_conf),
-    .sd_sdhc(1'b1),
+    .sd_lba         (sd_lba),
+    .sd_rd          (sd_rd),
+    .sd_wr          (sd_wr),
+    .sd_ack_x       (sd_ack),
+	 .sd_ack_conf    (sd_ack_conf   ),
+    .sd_dout        (sd_buff_dout),
+    .sd_dout_strobe (sd_buff_wr),
+    .sd_din         (sd_buff_din),
+    .sd_buff_addr   (sd_buff_addr),
+    .sd_conf        (sd_conf),
+    .sd_sdhc        (1'b1),
     .img_mounted(img_mounted),
     .img_size(img_size)
 );
 
-data_io  #(.DOUT_16(1)) data_io (
+data_io data_io (
     // SPI interface
     .SPI_SCK        ( SPI_SCK ),
     .SPI_SS2        ( SPI_SS2 ),
@@ -635,7 +641,7 @@ always @(posedge clk_sys) begin
 
 	sys_ce <= &div_sys;
 
-	if(&div_sys) turbo <= status[32];
+	if(&div_sys) turbo <= status[4];
 	mpu_cep <= turbo ?  div_sys[0] : ( div_sys[1] & div_sys[0]);
 	mpu_cen <= turbo ? ~div_sys[0] : (~div_sys[1] & div_sys[0]);
 
@@ -646,7 +652,7 @@ X68K_top X68K_top
 (
 	.ramclk     (clk_ram),
 	.sysclk     (clk_sys),
-	.vidclk     (clk_vid),
+	.vidclk     (clk_ram),
 	.fdcclk     (clk_sys),
 	.sndclk     (clk_sys),
 	
@@ -680,7 +686,7 @@ X68K_top X68K_top
 	.ldr_wr(ldr_wr),
 	.ldr_ack(ldr_ack),
 	.ldr_done(ldr_done),
-	.vid_hz(~status[33]),
+	.vid_hz(~status[3]),
 
 	.pPs2Clkin(ps2_kbd_clk_out),
 	.pPs2Clkout(ps2_kbd_clk_in),
@@ -802,11 +808,11 @@ end
 
 `ifdef I2S_AUDIO
 
-wire [31:0] clk_rate =  32'd80_000_000;
+wire [31:0] clk_rate =  32'd40_000_000;
 
 i2s i2s (
         .reset(reset),
-        .clk(clk_vid),
+        .clk(clk_sys),
         .clk_rate(clk_rate),
 
         .sclk(I2S_BCK),
@@ -818,7 +824,7 @@ i2s i2s (
 );
 `ifdef I2S_AUDIO_HDMI
 assign HDMI_MCLK = 0;
-always @(posedge clk_vid) begin
+always @(posedge clk_sys) begin
 	HDMI_BCK <= I2S_BCK;
 	HDMI_LRCK <= I2S_LRCK;
 	HDMI_SDATA <= I2S_DATA;
@@ -836,41 +842,60 @@ spdif spdif (
 );
 `endif
 
+dac #(
+   .c_bits	(16))
+audiodac_l(
+   .clk_i	(clk_sys	),
+   .res_n_i	(1	),
+   .dac_i	(out_l),
+   .dac_o	(AUDIO_L)
+  );
 
-mist_video #(.COLOR_DEPTH(6), .SD_HCNT_WIDTH(11), .USE_BLANKS(1),.OUT_COLOR_DEPTH(VGA_BITS), .BIG_OSD(BIG_OSD)) mist_video (	
+dac #(
+   .c_bits	(16))
+audiodac_r(
+   .clk_i	(clk_sys	),
+   .res_n_i	(1	),
+   .dac_i	(out_r),
+   .dac_o	(AUDIO_R)
+  );
+
+  
+////////////////////////////  VIDEO  ////////////////////////////////////
+  
+mist_video #(.COLOR_DEPTH(8),.OUT_COLOR_DEPTH(VGA_BITS),.USE_BLANKS(1),.VIDEO_CLEANER(1), .BIG_OSD(BIG_OSD)) mist_video (	
    .*,
-	.clk_sys      (clk_vid     ),
+	.clk_sys      (clk_sys    ),
 	.SPI_SCK      (SPI_SCK    ),
 	.SPI_SS3      (SPI_SS3    ),
 	.SPI_DI       (SPI_DI     ),
-	.R(red[7:2]),
-	.G(green[7:2]),
-	.B(blue[7:2]),
-	.HSync(~HSync),
-	.VSync(~VSync),
+	.R            (red),
+	.G            (green),
+	.B            (blue),
+	.HSync        (HSync),
+	.VSync        (VSync),
+	.HBlank       (HBlank),
+	.VBlank       (VBlank),
 	.VGA_R        (VGA_R      ),
 	.VGA_G        (VGA_G      ),
 	.VGA_B        (VGA_B      ),
-	.VGA_VS       (     ),
-	.VGA_HS       (     ),
+	.VGA_VS       (VGA_VS     ),
+	.VGA_HS       (VGA_HS     ),
 	.VGA_HB(),
 	.VGA_VB(),
 	.VGA_DE(),
-	.ce_divider   (3'd1       ),
-	.scandoubler_disable (scandoubler_disable),
+	.ce_divider   (3'd0       ),
+	.scandoubler_disable (1'b1),
 	.rotate(2'b00),
    .blend(1'b0),
 	.no_csync(1'b1),
 	.scanlines    ()
 	);
 
-assign VGA_HS=HSync;
-assign VGA_VS=VSync;
-
 	
 `ifdef USE_HDMI
-i2c_master #(80_000_000) i2c_master (
-	.CLK         (clk_vid),
+i2c_master #(40_000_000) i2c_master (
+	.CLK         (clk_sys),
 	.I2C_START   (i2c_start),
 	.I2C_READ    (i2c_read),
 	.I2C_ADDR    (i2c_addr),
@@ -886,23 +911,22 @@ i2c_master #(80_000_000) i2c_master (
 );
 
 mist_video #(.COLOR_DEPTH(6), .SD_HCNT_WIDTH(11), .OUT_COLOR_DEPTH(8), .USE_BLANKS(1), .BIG_OSD(BIG_OSD), .VIDEO_CLEANER(1)) hdmi_video (
-	.clk_sys     ( clk_vid   ),
+	.clk_sys     ( clk_sys   ),
 
 	// OSD SPI interface
 	.SPI_SCK     ( SPI_SCK    ),
 	.SPI_SS3     ( SPI_SS3    ),
 	.SPI_DI      ( SPI_DI     ),
-
 	.scanlines   (  ),
-	.ce_divider  ( 3'd1       ),
-	.scandoubler_disable (scandoubler_disable),
+	.ce_divider  ( 3'd0       ),
+	.scandoubler_disable (1'b1),
 	.no_csync    ( 1'b1       ),
 	.ypbpr       ( 1'b0       ),
 	.rotate      ( 2'b00      ),
 	.blend       ( 1'b0       ),
-	.R(red[7:2]),
-	.G(green[7:2]),
-	.B(blue[7:2]),
+	.R           (red),
+	.G           (green),
+	.B           (blue),
 	.HBlank      ( HBlank      ),
 	.VBlank      ( VBlank      ),
 	.HSync       ( HSync       ),
@@ -910,51 +934,17 @@ mist_video #(.COLOR_DEPTH(6), .SD_HCNT_WIDTH(11), .OUT_COLOR_DEPTH(8), .USE_BLAN
 	.VGA_R       ( HDMI_R      ),
 	.VGA_G       ( HDMI_G      ),
 	.VGA_B       ( HDMI_B      ),
-	.VGA_VS      (      ),
-	.VGA_HS      (      ),
+	.VGA_VS      (HDMI_VS      ),
+	.VGA_HS      (HDMI_HS      ),
 	.VGA_DE      ( HDMI_DE     )
 );
-assign HDMI_PCLK = clk_vid;
-assign HDMI_HS = HSync;
-assign HDMI_VS = VSync;
+assign HDMI_PCLK = clk_sys;
 
 `endif
 
 
-//assign AUDIO_R = out_r;
-//assign AUDIO_L = out_l;
-
 ////////////////////////////  VIDEO  ////////////////////////////////////
 
-//assign VGA_SL = sl[1:0];
-
-//wire       vcrop_en = status[22];
-//wire [3:0] vcopt    = status[26:23];
-//reg  [4:0] voff;
-//reg en216p = 0;
-
-//always @(posedge CLK_VIDEO) begin
-//	en216p <= ((HDMI_HEIGHT == 1080) && !forced_scandoubler && !scale);/
-//	voff <= (vcopt < 6) ? {vcopt,1'b0} : ({vcopt,1'b0} - 5'd24);
-//end
-
-//wire vga_de;
-//video_freak video_freak
-//(
-//	.*,
-//	.VGA_DE_IN(vga_de),
-//	.ARX((!ar) ? 12'd4 : (ar - 1'd1)),
-//	.ARY((!ar) ? 12'd3 : 12'd0),
-//	.CROP_SIZE((en216p & vcrop_en) ? 10'd216 : 10'd0),
-//	.CROP_OFF(voff),
-//	.SCALE(status[28:27])
-//);
-
-
-//wire [7:0] r_mt, g_mt, b_mt;
-
-//assign {r_mt, g_mt, b_mt} = mt32_lcd ? {{2{mt32_lcd_pix}},red[7:2], {2{mt32_lcd_pix}},green[7:2], {2{mt32_lcd_pix}},blue[7:2]} 
-//	: {red,green,blue};
 
 //video_mixer #(.LINE_LENGTH(800), .HALF_DEPTH(0), .GAMMA(1)) video_mixer
 //(
