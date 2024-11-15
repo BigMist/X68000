@@ -26,7 +26,6 @@
 module i2s_decoder (
   input wire clk,
   input wire sck,
-  input wire ws,
   input wire sd,
   output reg [15:0] left_out,
   output reg [15:0] right_out

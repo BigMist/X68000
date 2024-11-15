@@ -112,12 +112,23 @@ module guest_top
 `ifdef USE_AUDIO_IN
 	input         AUDIO_IN,
 `endif
+
 `ifdef INTERNAL_MT32
-   output        MIDI_CLKBD,
-   output        MIDI_WSBD,
-   output        MIDI_DABD,
+   input         MIDI_CLKBD,
+   input         MIDI_WSBD,
+   input         MIDI_DABD,
    output        MIDI_OUT,
+
+	output        joy_clk,
+   input         joy_xclk,
+	
+   output        joy_load,
+   input         joy_xload,
+   
+	input         joy_data,
+   output        joy_xdata,	
 `endif
+
 	input         UART_RX,
 	output        UART_TX
 
@@ -198,31 +209,27 @@ assign LED  = ~ioctl_download;
 `include "build_id.v" 
 parameter CONF_STR = {
 	"X68000;;",
-	"-;",
+	`SEP
 	"S0U,D88,FDD0;",
 	"S1U,D88,FDD1;",
 	"S2U,HDF,SASI Hard Disk;",
 	"S3,RAM,SRAM;",
-	"-;",
+	`SEP
 	"T9,Save FDD0 changes to SD;",
 	"TA,Save FDD1 changes to SD;",
-	"-;",
 	"TB,Eject FDD0;",
 	"TC,Eject FDD1;",
-	"-;",
+	`SEP
 	"TD,Load SRAM from SD Card;",
 	"TE,Save SRAM to SD Card;",
-	"-;",
+	`SEP
 	"O3,Video Frequency,60fps,Original;",
-//	"-;",
+   `SEP
 	"O4,CPU speed,Normal,Turbo;",
-`ifdef INTERNAL_MT32
-	"O5,MJ32 Synth,Enabled,Disabled;",
-`endif
 	"T7,NMI Button;",
 	"T8,Power Button;",
 	"T0,Reset;",
-	"-;",
+	`SEP
 	"V,v",`BUILD_DATE
 };
 
@@ -395,15 +402,15 @@ user_io #(.STRLEN($size(CONF_STR)>>3), .SD_IMAGES(4), .PS2DIV(2400),.PS2BIDIR(1)
 	.ps2_mouse_data_i(ps2_mouse_data_in),
 
 `ifdef USE_HDMI
-    .i2c_start      (i2c_start      ),
-    .i2c_read       (i2c_read       ),
-    .i2c_addr       (i2c_addr       ),
-    .i2c_subaddr    (i2c_subaddr    ),
-    .i2c_dout       (i2c_dout       ),
-    .i2c_din        (i2c_din        ),
-    .i2c_ack        (i2c_ack        ),
-    .i2c_end        (i2c_end        ),
-`endif
+	 .i2c_start      (i2c_start      ),
+	 .i2c_read       (i2c_read       ),
+	 .i2c_addr       (i2c_addr       ),
+	 .i2c_subaddr    (i2c_subaddr    ),
+	 .i2c_dout       (i2c_dout       ),
+	 .i2c_din        (i2c_din        ),
+	 .i2c_ack        (i2c_ack        ),
+	 .i2c_end        (i2c_end        ),
+	`endif
 
     .sd_lba         (sd_lba),
     .sd_rd          (sd_rd),
@@ -498,72 +505,17 @@ wire [15:0] mj32_i2s_r, mj32_i2s_l;
 i2s_decoder i2s_inst (
  .clk(clk_sys),         // Conecta el reloj del sistema
  .sck(MIDI_CLKBD),      // Señal de reloj del I2S
- .ws(MIDI_WSBD),        // Señal de selección de canal del I2S (word select)
- .sd(MIDI_DABD),               // Señal de datos seriales del I2S
- .left_out(mj32_i2s_l),   // Salida de datos para el canal izquierdo
- .right_out(mj32_i2s_r)  // Salida de datos para el canal derecho
+ .sd(MIDI_DABD),        // Señal de datos seriales del I2S
+ .left_out(mj32_i2s_l), // Salida de datos para el canal izquierdo
+ .right_out(mj32_i2s_r) // Salida de datos para el canal derecho
 );
+
+assign joy_clk = joy_xclk;
+assign joy_load = joy_xload;
+assign joy_xdata = joy_data;
 
 `endif
 
-//wire        mt32_reset    = status[40] | reset;
-//wire        mt32_disable  = status[18];
-//wire        mt32_mode_req = status[19];
-//wire  [1:0] mt32_rom_req  = status[21:20];
-//wire  [7:0] mt32_sf_req   = status[31:29];
-//wire  [1:0] mt32_info     = status[42:41];
-
-//wire [15:0] mt32_i2s_r, mt32_i2s_l;
-//wire  [7:0] mt32_mode, mt32_rom, mt32_sf;
-//wire        mt32_lcd_en, mt32_lcd_pix, mt32_lcd_update;
-//wire        midi_rx;
-
-//wire mt32_newmode;
-//wire mt32_available;
-//wire mt32_use  = mt32_available & ~mt32_disable;
-//wire mt32_mute = mt32_available &  mt32_disable;
-
-//mt32pi mt32pi
-//(
-//	.*,
-//	.reset(mt32_reset),
-//	.midi_tx(UART_TX | mt32_mute)
-//);
-
-//reg mt32_info_req;
-//reg [3:0] mt32_info_disp;
-//always @(posedge clk_sys) begin
-//	reg old_mode;
-//
-//	old_mode <= mt32_newmode;
-//	mt32_info_req <= (old_mode ^ mt32_newmode) && (mt32_info == 1);
-//	
-//	mt32_info_disp <= (mt32_mode == 'hA2) ? (4'd1 + mt32_sf[2:0]) :
-//                     (mt32_mode == 'hA1 && mt32_rom == 0) ?  4'd9 :
-//                     (mt32_mode == 'hA1 && mt32_rom == 1) ?  4'd10 :
-//                     (mt32_mode == 'hA1 && mt32_rom == 2) ?  4'd11 : 4'd12;
-//end
-//
-//reg mt32_lcd_on;
-//always @(posedge CLK_VIDEO) begin
-//	int to;
-//	reg old_update;
-//
-//	old_update <= mt32_lcd_update;
-//	if(to) to <= to - 1;
-//
-//	if(mt32_info == 2) mt32_lcd_on <= 1;
-//	else if(mt32_info != 3) mt32_lcd_on <= 0;
-//	else begin
-//		if(!to) mt32_lcd_on <= 0;
-//		if(old_update ^ mt32_lcd_update) begin
-//			mt32_lcd_on <= 1;
-//			to <= 90000000 * 2;
-//		end
-//	end
-//end
-//
-//wire mt32_lcd = mt32_lcd_on & mt32_lcd_en;
 
 ///////////////////////////////////////////////////
 wire [15:0] aud_r, aud_l, pcm_r, pcm_l, ym_r, ym_l;
@@ -744,8 +696,8 @@ end
 
 wire hdd_active;
 wire fdd_active;
-//led hdd_led(clk_sys,  sd_ack[2],   hdd_active);
-//led fdd_led(clk_sys, |sd_ack[1:0], fdd_active);
+led hdd_led(clk_sys,  sd_ack[2],   hdd_active);
+led fdd_led(clk_sys, |sd_ack[1:0], fdd_active);
 
 
 ////////////////////////////  AUDIO  ////////////////////////////////////
@@ -777,8 +729,8 @@ reg [15:0] cmp_l, cmp_r;
 
 `ifdef INTERNAL_MT32
 always @(posedge clk_sys) begin
-	out_l <= aud_l + mj32_mute? 16'd0: mj32_i2s_l;
-	out_r <= aud_r + mj32_mute? 16'd0: mj32_i2s_r;
+	out_l <= aud_l + mj32_i2s_l;
+	out_r <= aud_r + mj32_i2s_r;
 end
 `else
 always @(posedge clk_sys) begin
@@ -928,28 +880,6 @@ mist_video #(.COLOR_DEPTH(6), .SD_HCNT_WIDTH(11), .OUT_COLOR_DEPTH(8), .USE_BLAN
 assign HDMI_PCLK = clk_sys;
 
 `endif
-
-
-////////////////////////////  VIDEO  ////////////////////////////////////
-
-
-//video_mixer #(.LINE_LENGTH(800), .HALF_DEPTH(0), .GAMMA(1)) video_mixer
-//(
-//	.*,
-//
-////	.VGA_DE(vga_de),
-//	.hq2x(scale==1),
-//	.HSync(HSync),
-//	.HBlank(HBlank),
-//	.VSync(VSync),
-//	.VBlank(VBlank),
-//	.freeze_sync(),
-//
-//	.R(r_mt),
-//	.G(g_mt),
-//	.B(b_mt)
-//);
-
 
 endmodule
 
