@@ -852,7 +852,7 @@ mist_video #(.COLOR_DEPTH(8),
 	.BIG_OSD(BIG_OSD)) 
 mist_video (	
    .*,
-	.clk_sys      (clk_ram    ),
+	.clk_sys      (clk_sys    ),
 	.SPI_SCK      (SPI_SCK    ),
 	.SPI_SS3      (SPI_SS3    ),
 	.SPI_DI       (SPI_DI     ),
