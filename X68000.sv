@@ -77,6 +77,7 @@ module guest_top
 	output  [1:0] SDRAM_BA,
 	output        SDRAM_CLK,
 	output        SDRAM_CKE,
+	
 
 `ifdef DUAL_SDRAM
 	output [12:0] SDRAM2_A,
@@ -110,6 +111,12 @@ module guest_top
 `endif
 `ifdef USE_AUDIO_IN
 	input         AUDIO_IN,
+`endif
+`ifdef INTERNAL_MT32
+   output        MIDI_CLKBD,
+   output        MIDI_WSBD,
+   output        MIDI_DABD,
+   output        MIDI_OUT,
 `endif
 	input         UART_RX,
 	output        UART_TX
@@ -206,10 +213,12 @@ parameter CONF_STR = {
 	"TD,Load SRAM from SD Card;",
 	"TE,Save SRAM to SD Card;",
 	"-;",
-//
 	"O3,Video Frequency,60fps,Original;",
 //	"-;",
 	"O4,CPU speed,Normal,Turbo;",
+`ifdef INTERNAL_MT32
+	"O5,MJ32 Synth,Enabled,Disabled;",
+`endif
 	"T7,NMI Button;",
 	"T8,Power Button;",
 	"T0,Reset;",
@@ -309,61 +318,6 @@ wire [21:0] gamma_bus;
 wire  [7:0] uart1_mode;
 wire [31:0] uart1_speed;
 
-//hps_io #(.CONF_STR(CONF_STR), .PS2DIV(1625), .PS2WE(1), .VDNUM(4)) hps_io
-//(
-//	.clk_sys(clk_sys),
-//	.HPS_BUS(HPS_BUS),
-//
-//	.buttons(buttons),
-//	.status(status),
-//	.status_menumask({mt32_newmode, mt32_available, en216p}),
-//	.info_req(mt32_info_req),
-//	.info(mt32_info_disp),
-//
-//	.sd_lba('{sd_lba,sd_lba,sd_lba,sd_lba}),
-//	.sd_rd(sd_rd),
-//	.sd_wr(sd_wr),
-//	.sd_ack(sd_ack),
-//	.sd_buff_addr(sd_buff_addr),
-//	.sd_buff_dout(sd_buff_dout),
-//	.sd_buff_din('{sd_buff_din,sd_buff_din,sd_buff_din,sd_buff_din}),
-//	.sd_buff_wr(sd_buff_wr),
-// 
-//	.img_mounted(img_mounted),
-//	.img_readonly(img_readonly),
-//	.img_size(img_size),
-//	
-//	.forced_scandoubler(forced_scandoubler),
-//	.gamma_bus(gamma_bus),
-//
-//	.ioctl_download(ioctl_download),
-//	.ioctl_index(ioctl_index),
-//	.ioctl_wr(ioctl_wr),
-//	.ioctl_addr(ioctl_addr),
-//	.ioctl_dout(ioctl_dout),
-//	.ioctl_wait(ldr_wr),
-//	
-//	// .uart_mode(uart1_mode),
-//	// .uart_speed(uart1_speed),
-//
-////	.new_vmode(status[4]), // Use for option to avoid 24khz
-//
-//	.ps2_kbd_clk_out(ps2_kbd_clk_out),
-//	.ps2_kbd_data_out(ps2_kbd_data_out),
-//	.ps2_kbd_clk_in(ps2_kbd_clk_in),
-//	.ps2_kbd_data_in(ps2_kbd_data_in),
-//	.ps2_mouse_clk_out(ps2_mouse_clk_out),
-//	.ps2_mouse_data_out(ps2_mouse_data_out),
-//	.ps2_mouse_clk_in(ps2_mouse_clk_in),
-//	.ps2_mouse_data_in(ps2_mouse_data_in),
-//
-//	.ps2_key(ps2_key),
-//	
-//	.RTC(sysrtc),
-//
-//	.joystick_0(joystick_0),
-//	.joystick_1(joystick_1)
-//);
 
 wire scandoubler_disable;
 wire ypbpr;
@@ -535,7 +489,23 @@ always @(posedge clk_sys) begin : rst_block
 	if(old_rst & ~status[0]) init_reset_n <= 1;
 end
 
-////////////////////////////  MT32pi  ////////////////////////////////// 
+////////////////////////////  MJ32pi  ////////////////////////////////// 
+
+`ifdef INTERNAL_MT32
+wire        mj32_mute  = ~status[5];
+wire [15:0] mj32_i2s_r, mj32_i2s_l;
+
+i2s_decoder i2s_inst (
+ .clk(clk_sys),         // Conecta el reloj del sistema
+ .sck(MIDI_CLKBD),      // Señal de reloj del I2S
+ .ws(MIDI_WSBD),        // Señal de selección de canal del I2S (word select)
+ .sd(MIDI_DABD),               // Señal de datos seriales del I2S
+ .left_out(mj32_i2s_l),   // Salida de datos para el canal izquierdo
+ .right_out(mj32_i2s_r)  // Salida de datos para el canal derecho
+);
+
+`endif
+
 //wire        mt32_reset    = status[40] | reset;
 //wire        mt32_disable  = status[18];
 //wire        mt32_mode_req = status[19];
@@ -725,8 +695,13 @@ X68K_top X68K_top
 	.pSramld(sramld),
 	.pSramst(sramst),
 
+`ifdef INTERNAL_MT32
+	.pMidi_in(UART_RX),
+	.pMidi_out(MIDI_OUT),
+`else
 	.pMidi_in(UART_RX),
 	.pMidi_out(UART_TX),
+`endif
 
 	.pVideoR(red),
 	.pVideoG(green),
@@ -800,11 +775,18 @@ endfunction
 
 reg [15:0] cmp_l, cmp_r;
 
+`ifdef INTERNAL_MT32
 always @(posedge clk_sys) begin
-
-	out_l <= aud_l;
-	out_r <= aud_r;	
+	out_l <= aud_l + mj32_mute? 16'd0: mj32_i2s_l;
+	out_r <= aud_r + mj32_mute? 16'd0: mj32_i2s_r;
 end
+`else
+always @(posedge clk_sys) begin
+	out_l <= aud_l;
+	out_r <= aud_r;
+end
+
+`endif
 
 `ifdef I2S_AUDIO
 
@@ -863,9 +845,14 @@ audiodac_r(
   
 ////////////////////////////  VIDEO  ////////////////////////////////////
   
-mist_video #(.COLOR_DEPTH(8),.OUT_COLOR_DEPTH(VGA_BITS),.USE_BLANKS(1),.VIDEO_CLEANER(1), .BIG_OSD(BIG_OSD)) mist_video (	
+mist_video #(.COLOR_DEPTH(8),
+	.OUT_COLOR_DEPTH(VGA_BITS),
+	.USE_BLANKS(1),
+	.VIDEO_CLEANER(1),
+	.BIG_OSD(BIG_OSD)) 
+mist_video (	
    .*,
-	.clk_sys      (clk_sys    ),
+	.clk_sys      (clk_ram    ),
 	.SPI_SCK      (SPI_SCK    ),
 	.SPI_SS3      (SPI_SS3    ),
 	.SPI_DI       (SPI_DI     ),
