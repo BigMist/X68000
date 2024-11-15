@@ -362,7 +362,13 @@ wire        i2c_end;
 
 
 
-user_io #(.STRLEN($size(CONF_STR)>>3), .SD_IMAGES(4), .PS2DIV(2400),.PS2BIDIR(1), .FEATURES(32'h0 | (BIG_OSD << 13) | (HDMI << 14))) user_io
+user_io #(
+	.STRLEN($size(CONF_STR)>>3),
+	.SD_IMAGES(4),
+	.PS2DIV(2400),
+	.PS2BIDIR(1),
+	.FEATURES(32'h0 | (BIG_OSD << 13) | (HDMI << 14))) 
+user_io
 ( 
     .clk_sys(clk_sys),
     .clk_sd(clk_sys),
@@ -804,7 +810,7 @@ mist_video #(.COLOR_DEPTH(8),
 	.BIG_OSD(BIG_OSD)) 
 mist_video (	
    .*,
-	.clk_sys      (clk_sys    ),
+	.clk_sys      (clk_ram    ),
 	.SPI_SCK      (SPI_SCK    ),
 	.SPI_SS3      (SPI_SS3    ),
 	.SPI_DI       (SPI_DI     ),
@@ -849,8 +855,16 @@ i2c_master #(40_000_000) i2c_master (
 	.I2C_SDA     (HDMI_SDA)
 );
 
-mist_video #(.COLOR_DEPTH(6), .SD_HCNT_WIDTH(11), .OUT_COLOR_DEPTH(8), .USE_BLANKS(1), .BIG_OSD(BIG_OSD), .VIDEO_CLEANER(1)) hdmi_video (
-	.clk_sys     ( clk_sys   ),
+mist_video #(
+	.COLOR_DEPTH(6),
+	.OUT_COLOR_DEPTH(8),
+	.USE_BLANKS(1),
+	.BIG_OSD(BIG_OSD),
+	.VIDEO_CLEANER(1)
+)
+
+hdmi_video (
+	.clk_sys     ( clk_ram   ),
 
 	// OSD SPI interface
 	.SPI_SCK     ( SPI_SCK    ),
@@ -877,7 +891,7 @@ mist_video #(.COLOR_DEPTH(6), .SD_HCNT_WIDTH(11), .OUT_COLOR_DEPTH(8), .USE_BLAN
 	.VGA_HS      (HDMI_HS      ),
 	.VGA_DE      ( HDMI_DE     )
 );
-assign HDMI_PCLK = clk_sys;
+assign HDMI_PCLK = clk_ram;
 
 `endif
 
