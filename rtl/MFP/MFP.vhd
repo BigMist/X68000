@@ -69,8 +69,9 @@ port(
 	INTack	:in std_logic;
 	IVack	:in std_logic_vector(7 downto 0);
 	
+	kbdtype	:in std_logic_vector(1 downto 0)	:="00";
+	
 	clk		:in std_logic;
-	ce      :in std_logic := '1';
 	rstn	:in std_logic
 );
 end MFP;
@@ -103,8 +104,7 @@ signal	TCDRRD	:std_logic;
 signal	TCDRWR	:std_logic;
 signal	TDDRRD	:std_logic;
 signal	TDDRWR	:std_logic;
-constant TAE	:std_logic := '0';
-constant TBE	:std_logic := '0';
+signal	TAE,TBE	:std_logic;
 
 signal	INTrdat		:std_logic_vector(7 downto 0);
 signal	INTdoe		:std_logic;
@@ -204,7 +204,6 @@ port(
 	GPIPR0	:out std_logic;
 
 	clk		:in std_logic;
-	ce      :in std_logic;
 	rstn	:in std_logic
 );
 end component;
@@ -250,7 +249,6 @@ port(
 	TDO		:out std_logic;
 
 	clk		:in std_logic;
-	ce      :in std_logic;
 	rstn	:in std_logic
 );
 end component;
@@ -321,7 +319,6 @@ port(
 	IVack	:in std_logic_vector(7 downto 0);
 	
 	clk		:in std_logic;
-	ce      :in std_logic;
 	rstn	:in std_logic
 );
 end component;
@@ -361,9 +358,9 @@ port(
 	kbrx	:out std_logic;
 
 	LED		:out std_logic_vector(6 downto 0);
+	kbdtype	:in std_logic_vector(1 downto 0)	:="00";
 	
 	clk		:in std_logic;
-	ce      :in std_logic;
 	rstn	:in std_logic
 );
 end component;
@@ -475,7 +472,6 @@ begin
 		GPIPR0	=>INTB0,
 
 		clk		=>clk,
-		ce      =>ce,
 		rstn	=>rstn
 	);
 	
@@ -516,7 +512,6 @@ begin
 		TDO		=>TDO,
 
 		clk		=>clk,
-		ce      =>ce,
 		rstn	=>rstn
 	);
 	
@@ -550,9 +545,9 @@ begin
 		kbrx	=>kbrx,
 
 		LED		=>KBLED,
+		kbdtype	=>kbdtype,
 		
 		clk		=>clk,
-		ce      =>ce,
 		rstn	=>rstn
 	);
 
@@ -620,7 +615,6 @@ begin
 		IVACK	=>IVack,
 			
 		clk		=>clk,
-		ce      =>ce,
 		rstn	=>rstn
 	);
 

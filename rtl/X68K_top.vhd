@@ -65,8 +65,9 @@ port(
    pPs2Datout	: out std_logic;
    pPmsClkin	: in std_logic;
    pPmsClkout	: out std_logic;
-   pPmsDatin	: in std_logic;
+	pPmsDatin	: in std_logic;
    pPmsDatout	: out std_logic;
+   pkbdtype        :in std_logic_vector(1 downto 0);
 
     -- Joystick ports (Port_A, Port_B)
 	pJoyA       : in std_logic_vector( 5 downto 0);
@@ -1540,6 +1541,156 @@ port(
 );
 end component;
 
+--component vidcont
+--generic(
+--	arange	:integer	:=22
+--	);
+--port(
+--	t_base	:in std_logic_vector(arange-1 downto 0);
+--	g_base	:in std_logic_vector(arange-1 downto 0);
+--
+--	g00_addr	:out std_logic_vector(arange-1 downto 0);
+--	g00_rd	:out std_logic;
+--	g00_rdat	:in std_logic_vector(15 downto 0);
+--
+--	g01_addr	:out std_logic_vector(arange-1 downto 0);
+--	g01_rd	:out std_logic;
+--	g01_rdat	:in std_logic_vector(15 downto 0);
+--
+--	g02_addr	:out std_logic_vector(arange-1 downto 0);
+--	g02_rd	:out std_logic;
+--	g02_rdat	:in std_logic_vector(15 downto 0);
+--
+--	g03_addr	:out std_logic_vector(arange-1 downto 0);
+--	g03_rd	:out std_logic;
+--	g03_rdat	:in std_logic_vector(15 downto 0);
+--
+--	g10_addr	:out std_logic_vector(arange-1 downto 0);
+--	g10_rd	:out std_logic;
+--	g10_rdat	:in std_logic_vector(15 downto 0);
+--
+--	g11_addr	:out std_logic_vector(arange-1 downto 0);
+--	g11_rd	:out std_logic;
+--	g11_rdat	:in std_logic_vector(15 downto 0);
+--
+--	g12_addr	:out std_logic_vector(arange-1 downto 0);
+--	g12_rd	:out std_logic;
+--	g12_rdat	:in std_logic_vector(15 downto 0);
+--
+--	g13_addr	:out std_logic_vector(arange-1 downto 0);
+--	g13_rd	:out std_logic;
+--	g13_rdat	:in std_logic_vector(15 downto 0);
+--
+--	t0_addr	:out std_logic_vector(arange-3 downto 0);
+--	t0_rd		:out std_logic;
+--	t0_rdat0	:in std_logic_vector(15 downto 0);
+--	t0_rdat1	:in std_logic_vector(15 downto 0);
+--	t0_rdat2	:in std_logic_vector(15 downto 0);
+--	t0_rdat3	:in std_logic_vector(15 downto 0);
+--	
+--	t1_addr	:out std_logic_vector(arange-3 downto 0);
+--	t1_rd		:out std_logic;
+--	t1_rdat0	:in std_logic_vector(15 downto 0);
+--	t1_rdat1	:in std_logic_vector(15 downto 0);
+--	t1_rdat2	:in std_logic_vector(15 downto 0);
+--	t1_rdat3	:in std_logic_vector(15 downto 0);
+--	
+--	g0_caddr	:out std_logic_vector(arange-1 downto 7);
+--	g0_clear	:out std_logic;
+--	
+--	g1_caddr	:out std_logic_vector(arange-1 downto 7);
+--	g1_clear	:out std_logic;
+--
+--	g2_caddr	:out std_logic_vector(arange-1 downto 7);
+--	g2_clear	:out std_logic;
+--
+--	g3_caddr	:out std_logic_vector(arange-1 downto 7);
+--	g3_clear	:out std_logic;
+--
+--	t_hoffset	:in std_logic_vector(9 downto 0);
+--	t_voffset	:in std_logic_vector(9 downto 0);
+--	
+--	g0_hoffset	:in std_logic_vector(9 downto 0);
+--	g0_voffset	:in std_logic_vector(9 downto 0);
+--	g1_hoffset	:in std_logic_vector(8 downto 0);
+--	g1_voffset	:in std_logic_vector(8 downto 0);
+--	g2_hoffset	:in std_logic_vector(8 downto 0);
+--	g2_voffset	:in std_logic_vector(8 downto 0);
+--	g3_hoffset	:in std_logic_vector(8 downto 0);
+--	g3_voffset	:in std_logic_vector(8 downto 0);
+--
+--	gmode	:in std_logic_vector(1 downto 0);		--00:4bit color 01:8bit color 11/10:16bit color
+--	memres	:in std_logic;							--0:512x512 1:1024x1024
+--	hres	:in std_logic_vector(1 downto 0);		--00:256 01:512 10/11:768
+--	vres	:in std_logic;							--0:256 1:512
+--	txten	:in std_logic;
+--	grpen	:in std_logic;
+--	spren	:in std_logic;
+--	graphen	:in std_logic_vector(4 downto 0);
+--	grpri	:in std_logic_vector(7 downto 0);
+--	pri_sp	:in std_logic_vector(1 downto 0);
+--	pri_tx	:in std_logic_vector(1 downto 0);
+--	pri_gr	:in std_logic_vector(1 downto 0);
+--	exon		:in std_logic;
+--	hp			:in std_logic;
+--	bp			:in std_logic;
+--	gg			:in std_logic;
+--	gt			:in std_logic;
+--	ah			:in std_logic;
+--	ys          :in std_logic;
+--	vht         :in std_logic;
+--	lsel        :in std_logic;
+--
+--	lbaddr	:out std_logic_vector(9 downto 0);
+--	lbwdat	:out std_logic_vector(15 downto 0);
+--	lbwr	:out std_logic;
+--	
+--	hcomp	:in std_logic;
+--	vpstart	:in std_logic;
+--	hfreq	:in std_logic;
+--	htotal	:in std_logic_vector(7 downto 0);
+--	hvbgn	:in std_logic_vector(7 downto 0);
+--	hvend	:in std_logic_vector(7 downto 0);
+--	vtotal	:in std_logic_vector(9 downto 0);
+--	vvbgn	:in std_logic_vector(9 downto 0);
+--	vvend	:in std_logic_vector(9 downto 0);
+--	
+--	addrx	:out std_logic_vector(9 downto 0);
+--	addry	:out std_logic_vector(9 downto 0);
+--	sprite_in:in std_logic_vector(7 downto 0);
+--	
+--	tpalno	:out std_logic_vector(7 downto 0);
+--	tpalin	:in std_logic_vector(15 downto 0);
+--	tpal0in	:in std_logic_vector(15 downto 0);
+--	gpal0in	:in std_logic_vector(15 downto 0);
+--	
+--	spalno	:out std_logic_vector(7 downto 0);
+--	spalin	:in std_logic_vector(15 downto 0);
+--
+--	gpal0no	:out std_logic_vector(7 downto 0);
+--	gpal1no	:out std_logic_vector(7 downto 0);
+--	gpalin	:in std_logic_vector(15 downto 0);
+--	
+--	vvideoen	:out std_logic;
+--	rintline:in std_logic_vector(9 downto 0);
+--	rint	:out std_logic;
+--
+--	vlineno	:out std_logic_vector(9 downto 0);
+--	
+--	gclrbgn	:in std_logic;
+--	gclrend	:in std_logic;
+--	gclrpage:in std_logic_vector(3 downto 0);
+--	gclrbusy:out std_logic;
+--	
+--	hblank  :in std_logic;
+--	vblank  :in std_logic;
+--	
+--	vidclk		:in std_logic;
+--	vid_ce      :in std_logic := '1';
+--	rstn	:in std_logic
+--);
+--end component;
+
 component vidcont
 generic(
 	arange	:integer	:=22
@@ -1549,45 +1700,45 @@ port(
 	g_base	:in std_logic_vector(arange-1 downto 0);
 
 	g00_addr	:out std_logic_vector(arange-1 downto 0);
-	g00_rd	:out std_logic;
+	g00_rd		:out std_logic;
 	g00_rdat	:in std_logic_vector(15 downto 0);
 
 	g01_addr	:out std_logic_vector(arange-1 downto 0);
-	g01_rd	:out std_logic;
+	g01_rd		:out std_logic;
 	g01_rdat	:in std_logic_vector(15 downto 0);
 
 	g02_addr	:out std_logic_vector(arange-1 downto 0);
-	g02_rd	:out std_logic;
+	g02_rd		:out std_logic;
 	g02_rdat	:in std_logic_vector(15 downto 0);
 
 	g03_addr	:out std_logic_vector(arange-1 downto 0);
-	g03_rd	:out std_logic;
+	g03_rd		:out std_logic;
 	g03_rdat	:in std_logic_vector(15 downto 0);
 
 	g10_addr	:out std_logic_vector(arange-1 downto 0);
-	g10_rd	:out std_logic;
+	g10_rd		:out std_logic;
 	g10_rdat	:in std_logic_vector(15 downto 0);
 
 	g11_addr	:out std_logic_vector(arange-1 downto 0);
-	g11_rd	:out std_logic;
+	g11_rd		:out std_logic;
 	g11_rdat	:in std_logic_vector(15 downto 0);
 
 	g12_addr	:out std_logic_vector(arange-1 downto 0);
-	g12_rd	:out std_logic;
+	g12_rd		:out std_logic;
 	g12_rdat	:in std_logic_vector(15 downto 0);
 
 	g13_addr	:out std_logic_vector(arange-1 downto 0);
-	g13_rd	:out std_logic;
+	g13_rd		:out std_logic;
 	g13_rdat	:in std_logic_vector(15 downto 0);
 
-	t0_addr	:out std_logic_vector(arange-3 downto 0);
+	t0_addr		:out std_logic_vector(arange-3 downto 0);
 	t0_rd		:out std_logic;
 	t0_rdat0	:in std_logic_vector(15 downto 0);
 	t0_rdat1	:in std_logic_vector(15 downto 0);
 	t0_rdat2	:in std_logic_vector(15 downto 0);
 	t0_rdat3	:in std_logic_vector(15 downto 0);
 	
-	t1_addr	:out std_logic_vector(arange-3 downto 0);
+	t1_addr		:out std_logic_vector(arange-3 downto 0);
 	t1_rd		:out std_logic;
 	t1_rdat0	:in std_logic_vector(15 downto 0);
 	t1_rdat1	:in std_logic_vector(15 downto 0);
@@ -1636,9 +1787,6 @@ port(
 	gg			:in std_logic;
 	gt			:in std_logic;
 	ah			:in std_logic;
-	ys          :in std_logic;
-	vht         :in std_logic;
-	lsel        :in std_logic;
 
 	lbaddr	:out std_logic_vector(9 downto 0);
 	lbwdat	:out std_logic_vector(15 downto 0);
@@ -1661,11 +1809,10 @@ port(
 	tpalno	:out std_logic_vector(7 downto 0);
 	tpalin	:in std_logic_vector(15 downto 0);
 	tpal0in	:in std_logic_vector(15 downto 0);
-	gpal0in	:in std_logic_vector(15 downto 0);
 	
 	spalno	:out std_logic_vector(7 downto 0);
 	spalin	:in std_logic_vector(15 downto 0);
-
+	
 	gpal0no	:out std_logic_vector(7 downto 0);
 	gpal1no	:out std_logic_vector(7 downto 0);
 	gpalin	:in std_logic_vector(15 downto 0);
@@ -1681,11 +1828,8 @@ port(
 	gclrpage:in std_logic_vector(3 downto 0);
 	gclrbusy:out std_logic;
 	
-	hblank  :in std_logic;
-	vblank  :in std_logic;
-	
-	vidclk		:in std_logic;
-	vid_ce      :in std_logic := '1';
+	vidclk	:in std_logic;
+	sysclk	:in std_logic;
 	rstn	:in std_logic
 );
 end component;
@@ -1774,7 +1918,6 @@ port(
 	SA			:out std_logic;
 	AP			:out std_logic_vector(3 downto 0);
 	CP			:out std_logic_vector(3 downto 0);
-	DC          :out std_logic;
 	csrc		:out std_logic_vector(7 downto 0);
 	cdst		:out std_logic_vector(7 downto 0);
 	tmask		:out std_logic_vector(15 downto 0);
@@ -1806,7 +1949,6 @@ port(
 	YS			:out std_logic;
 	
 	clk		:in std_logic;
-	ce      :in std_logic := '1';
 	rstn	:in std_logic
 );
 end component;
@@ -1947,8 +2089,9 @@ port(
 	INTack	:in std_logic;
 	IVack	:in std_logic_vector(7 downto 0);
 	
+	kbdtype	:in std_logic_vector(1 downto 0);
+	
 	clk		:in std_logic;
-	ce      :in std_logic := '1';
 	rstn	:in std_logic
 );
 end component;
@@ -2894,121 +3037,121 @@ begin
 	nvwpl	:bwlatch generic map(24,8) port map(abus(23 downto 0),b_lds and sys_ce,b_wr(0),dbus(7 downto 0),x"e8e00d",nvwp,sysclk,srstn);
 	nv_ce<='1' when abus(23 downto 14)="1110110100" else '0';
 
-	-- CRTC	:CRTCX68TXT generic map(4) port map(
-	-- 	LRAMSEL		=>LRAMSEL,
-	-- 	LRAMADR		=>LVIDADR,
-	-- 	LRAMDAT		=>LVIDRD,
+	CRTC	:CRTCX68TXT generic map(4) port map(
+		LRAMSEL		=>LRAMSEL,
+		LRAMADR		=>LVIDADR,
+		LRAMDAT		=>LVIDRD,
 		
-	-- 	TRAM_ADR	=>open,
-	-- 	TRAM_DAT	=>(others=>'0'),
+		TRAM_ADR	=>open,
+		TRAM_DAT	=>(others=>'0'),
 		
-	-- 	FRAM_ADR	=>open,
-	-- 	FRAM_DAT	=>(others=>'0'),
+		FRAM_ADR	=>open,
+		FRAM_DAT	=>(others=>'0'),
 		
-	-- 	CURL		=>(others=>'0'),
-	-- 	CURC		=>(others=>'0'),
-	-- 	CURE		=>'0',
+		CURL		=>(others=>'0'),
+		CURC		=>(others=>'0'),
+		CURE		=>'0',
 
-	-- 	TXTMODE		=>'0',
+		TXTMODE		=>'0',
 	
-	-- 	ROUT		=>vidR,
-	-- 	GOUT		=>vidG,
-	-- 	BOUT		=>vidB,
+		ROUT		=>vidR,
+		GOUT		=>vidG,
+		BOUT		=>vidB,
 
-	-- 	RFOUT		=>vidRF,
-	-- 	GFOUT		=>vidGF,
-	-- 	BFOUT		=>vidBF,
+		RFOUT		=>vidRF,
+		GFOUT		=>vidGF,
+		BFOUT		=>vidBF,
 		
-	-- 	HSYNC		=>vidHS,
-	-- 	VSYNC		=>vidVS,
+		HSYNC		=>vidHS,
+		VSYNC		=>vidVS,
 		
-	-- 	HMODE		=>"11",
-	-- 	VMODE		=>'1',
+		HMODE		=>  "11",
+		VMODE		=> '1',
 
-	-- 	VRTC		=>VID_VRTC,
-	-- 	HRTC		=>VID_HRTC,
-	-- 	VIDEN		=>vidEN,
+		VRTC		=>VID_VRTC,
+		HRTC		=>VID_HRTC,
+		VIDEN		=>vidEN,
 
-	-- 	HCOMP		=>HCOMP,
-	-- 	VCOMP		=>open,
-	-- 	VPSTART		=>VPSTART,
+		HCOMP		=>HCOMP,
+		VCOMP		=>open,
+		VPSTART	=>VPSTART,
 		
-	-- 	dclk		=>dclk,
+		dclk		=>dclk,
 		
-	-- 	gclk		=>vidclk,
-	-- 	rstn		=>vid_rstn
-	-- );
-
-	-- out_HMODE  <= vr_HD;
-	-- out_VMODE  <= vr_VD;
-	-- out_hfreq  <= vr_hfreq;
-	-- out_htotal <= vr_htotal;
-	-- out_hsynl  <= vr_hsync;
-	-- out_hvbgn  <= vr_hvbgn;
-	-- out_hvend  <= vr_hvend;
-	-- out_vtotal <= vr_vtotal;
-	-- out_vsynl  <= vr_vsync;
-	-- out_vvbgn  <= vr_vvbgn;
-	-- out_vvend  <= vr_vvend;
-	-- out_rintl  <= vr_rintline;
-
-	CRTC	:mister_sync 
-	port map(
-		LRAMSEL     =>LRAMSEL,
-		LRAMADR     =>LVIDADR,
-		LRAMDAT     =>LVIDRD,
-
-		RFOUT       =>vidRF,
-		GFOUT       =>vidGF,
-		BFOUT       =>vidBF,
-		
-		HSYNC       =>vidHS,
-		VSYNC       =>vidVS,
-		
-		HMODE       =>vr_HD,
-		VMODE       =>vr_VD,
-	
-		hrl         =>vr_DC,
-		hfreq       =>vr_hfreq,
-		htotal      =>vr_htotal,
-		hsynl       =>vr_hsync,
-		hvbgn       =>vr_hvbgn,
-		hvend       =>vr_hvend,
-		vtotal      =>vr_vtotal,
-		vsynl       =>vr_vsync,
-		vvbgn       =>vr_vvbgn,
-		vvend       =>vr_vvend,
-		rintl       =>vr_rintline,
-		hadj        =>vr_hadj,
-		
-		out_HMODE   =>out_HMODE,
-		out_VMODE   =>out_VMODE,
-		out_hfreq   =>out_hfreq,
-		out_htotal  =>out_htotal,
-		--out_hsynl   =>out_hsynl,
-		out_hvbgn   =>out_hvbgn,
-		out_hvend   =>out_hvend,
-		out_vtotal  =>out_vtotal,
-		--out_vsynl   =>out_vsynl,
-		out_vvbgn   =>out_vvbgn,
-		out_vvend   =>out_vvend,
-		out_rintl   =>out_rintl,
-
-		VRTC        =>VID_VRTC,
-		HRTC        =>VID_HRTC,
-		VIDEN       =>vidEN,
-
-		HCOMP       =>HCOMP,
-		VCOMP       =>open,
-		VPSTART     =>VPSTART,
-		
-		pix_ce      =>dclk,
-		v60hz       =>vid_hz,
-		f1          =>pVideoF1,
-		
-		gclk        =>vidclk,
-		rstn        =>vid_rstn
+		gclk		=>vidclk,
+		rstn		=>vid_rstn
 	);
+
+	out_HMODE  <= vr_HD;
+	out_VMODE  <= vr_VD;
+	out_hfreq  <= vr_hfreq;
+	out_htotal <= vr_htotal;
+	out_hsynl  <= vr_hsync;
+	out_hvbgn  <= vr_hvbgn;
+	out_hvend  <= vr_hvend;
+	out_vtotal <= vr_vtotal;
+	out_vsynl  <= vr_vsync;
+   out_vvbgn  <= vr_vvbgn;
+	out_vvend  <= vr_vvend;
+	out_rintl  <= vr_rintline;
+
+--	CRTC	:mister_sync 
+--	port map(
+--		LRAMSEL     =>LRAMSEL,
+--		LRAMADR     =>LVIDADR,
+--		LRAMDAT     =>LVIDRD,
+--
+--		RFOUT       =>vidRF,
+--		GFOUT       =>vidGF,
+--		BFOUT       =>vidBF,
+--		
+--		HSYNC       =>vidHS,
+--		VSYNC       =>vidVS,
+--		
+--		HMODE       =>vr_HD,
+--		VMODE       =>vr_VD,
+--	
+--		hrl         =>vr_DC,
+--		hfreq       =>vr_hfreq,
+--		htotal      =>vr_htotal,
+--		hsynl       =>vr_hsync,
+--		hvbgn       =>vr_hvbgn,
+--		hvend       =>vr_hvend,
+--		vtotal      =>vr_vtotal,
+--		vsynl       =>vr_vsync,
+--		vvbgn       =>vr_vvbgn,
+--		vvend       =>vr_vvend,
+--		rintl       =>vr_rintline,
+--		hadj        =>vr_hadj,
+--		
+--		out_HMODE   =>out_HMODE,
+--		out_VMODE   =>out_VMODE,
+--		out_hfreq   =>out_hfreq,
+--		out_htotal  =>out_htotal,
+--		--out_hsynl   =>out_hsynl,
+--		out_hvbgn   =>out_hvbgn,
+--		out_hvend   =>out_hvend,
+--		out_vtotal  =>out_vtotal,
+--		--out_vsynl   =>out_vsynl,
+--		out_vvbgn   =>out_vvbgn,
+--		out_vvend   =>out_vvend,
+--		out_rintl   =>out_rintl,
+--
+--		VRTC        =>VID_VRTC,
+--		HRTC        =>VID_HRTC,
+--		VIDEN       =>vidEN,
+--
+--		HCOMP       =>HCOMP,
+--		VCOMP       =>open,
+--		VPSTART     =>VPSTART,
+--		
+--		pix_ce      =>dclk,
+--		v60hz       =>vid_hz,
+--		f1          =>pVideoF1,
+--		
+--		gclk        =>vidclk,
+--		rstn        =>vid_rstn
+--	);
 
 	vid_ce <= '1';
 	cont	:contcont generic map(context) port map(
@@ -3073,6 +3216,78 @@ begin
 	--LBUFRD<=LBUFRD0 when LRAMSEL='0' else LBUFRD1;
 	LVIDRD<=LVIDRD0 when LRAMSEL='1' else LVIDRD1;
 
+--	vreg	:vcreg port map(
+--		addr	=>abus(23 downto 0),
+--		rdat	=>vr_rdat,
+--		wdat	=>dbus,
+--		rd		=>b_rd,
+--		wr		=>b_wr,
+--		doe		=>vr_doe,
+--		
+--		htotal		=>vr_htotal,
+--		hsync		=>vr_hsync,
+--		hvbgn		=>vr_hvbgn,
+--		hvend		=>vr_hvend,
+--		vtotal		=>vr_vtotal,
+--		vsync		=>vr_vsync,
+--		vvbgn		=>vr_vvbgn,
+--		vvend		=>vr_vvend,
+--		hadj		=>vr_hadj,
+--		intraster	=>vr_rintline,
+--		txtoffsetx	=>txt_offsetx,
+--		txtoffsety	=>txt_offsety,
+--		g0offsetx	=>gr0_offsetx,
+--		g0offsety	=>gr0_offsety,
+--		g1offsetx	=>gr1_offsetx,
+--		g1offsety	=>gr1_offsety,
+--		g2offsetx	=>gr2_offsetx,
+--		g2offsety	=>gr2_offsety,
+--		g3offsetx	=>gr3_offsetx,
+--		g3offsety	=>gr3_offsety,
+--		siz			=>vr_size,
+--		col			=>vr_col,
+--		HF			=>vr_hfreq,
+--		VD			=>vr_VD,
+--		HD			=>vr_HD,
+--		MEN			=>vr_MEN,
+--		SA			=>vr_SA,
+--		AP			=>vr_AP,
+--		CP			=>vr_rcpyplane,
+--		DC          =>vr_DC,
+--		csrc		=>vr_rcpysrc,
+--		cdst		=>vr_rcpydst,
+--		RCbgn		=>vr_rcpybgn,
+--		RCend		=>vr_rcpyend,
+--		FCbgn		=>vr_fcbgn,
+--		FCend		=>vr_fcend,
+--		VIbgn		=>open,
+--		VIend		=>open,
+--		tmask		=>vr_txtmask,
+--		RCbusy		=>vr_rcpybusy,
+--		FCbusy		=>vr_fcbusy,
+--		VIbusy		=>'0',
+--		GR_SIZE		=>vr_GR_SIZE,
+--		GR_CMODE	=>vr_GR_CMODE,
+--		PRI_SP		=>vr_PRI_SP,
+--		PRI_TX		=>vr_PRI_TX,
+--		PRI_GR		=>vr_PRI_GR,
+--		GR_PRI		=>vr_GR_PRI,
+--		GRPEN		=>vr_GRPEN,
+--		TXTEN		=>vr_TXTEN,
+--		SPREN		=>VR_SPREN,
+--		GT			=>vr_GT,
+--		GG			=>vr_GG,
+--		BP			=>vr_BP,
+--		HP			=>vr_HP,
+--		EXON		=>vr_EXON,
+--		VHT			=>vr_VHT,
+--		AH			=>vr_AH,
+--		YS			=>vr_YS,
+--		
+--		clk		=>sysclk,
+--		ce      =>sys_ce,
+--		rstn	=>srstn
+--	);
 	vreg	:vcreg port map(
 		addr	=>abus(23 downto 0),
 		rdat	=>vr_rdat,
@@ -3110,7 +3325,6 @@ begin
 		SA			=>vr_SA,
 		AP			=>vr_AP,
 		CP			=>vr_rcpyplane,
-		DC          =>vr_DC,
 		csrc		=>vr_rcpysrc,
 		cdst		=>vr_rcpydst,
 		RCbgn		=>vr_rcpybgn,
@@ -3142,13 +3356,151 @@ begin
 		YS			=>vr_YS,
 		
 		clk		=>sysclk,
-		ce      =>sys_ce,
 		rstn	=>srstn
 	);
-
+	
 	vr_GREN<=	vr_GRPEN(4) when vr_GR_SIZE='1' else
 					'0' when vr_GRPEN(3 downto 0)="0000" else
 					'1';
+--	vc	:vidcont generic map(RAMAWIDTH-1) port map(
+--		1G	=>"011100000000000000000000",
+--		g_base	=>"011101000000000000000000",
+--		g00_addr	=>g00_addr,
+--		g00_rd		=>g00_rd,
+--		g00_rdat	=>g00_rdat,
+--		g01_addr	=>g01_addr,
+--		g01_rd		=>g01_rd,
+--		g01_rdat	=>g01_rdat,
+--		g02_addr	=>g02_addr,
+--		g02_rd		=>g02_rd,
+--		g02_rdat	=>g02_rdat,
+--		g03_addr	=>g03_addr,
+--		g03_rd		=>g03_rd,
+--		g03_rdat	=>g03_rdat,
+--
+--		t0_addr		=>t0_addr,
+--		t0_rd		=>t0_rd,
+--		t0_rdat0	=>t0_rdat0,
+--		t0_rdat1	=>t0_rdat1,
+--		t0_rdat2	=>t0_rdat2,
+--		t0_rdat3	=>t0_rdat3,
+--
+--		g10_addr	=>g10_addr,
+--		g10_rd		=>g10_rd,
+--		g10_rdat	=>g10_rdat,
+--		g11_addr	=>g11_addr,
+--		g11_rd		=>g11_rd,
+--		g11_rdat	=>g11_rdat,
+--		g12_addr	=>g12_addr,
+--		g12_rd		=>g12_rd,
+--		g12_rdat	=>g12_rdat,
+--		g13_addr	=>g13_addr,
+--		g13_rd		=>g13_rd,
+--		g13_rdat	=>g13_rdat,
+--
+--		t1_addr		=>t1_addr,
+--		t1_rd		=>t1_rd,
+--		t1_rdat0	=>t1_rdat0,
+--		t1_rdat1	=>t1_rdat1,
+--		t1_rdat2	=>t1_rdat2,
+--		t1_rdat3	=>t1_rdat3,
+--
+--		t_hoffset	=>txt_offsetx,
+--		t_voffset	=>txt_offsety,
+--
+--		g0_caddr	=>g0_caddr,
+--		g0_clear	=>g0_clear,
+--		
+--		g1_caddr	=>g1_caddr,
+--		g1_clear	=>g1_clear,
+--
+--		g2_caddr	=>g2_caddr,
+--		g2_clear	=>g2_clear,
+--
+--		g3_caddr	=>g3_caddr,
+--		g3_clear	=>g3_clear,
+--
+--		g0_hoffset	=>gr0_offsetx,
+--		g0_voffset	=>gr0_offsety,
+--		g1_hoffset	=>gr1_offsetx,
+--		g1_voffset	=>gr1_offsety,
+--		g2_hoffset	=>gr2_offsetx,
+--		g2_voffset	=>gr2_offsety,
+--		g3_hoffset	=>gr3_offsetx,
+--		g3_voffset	=>gr3_offsety,
+--
+--		gmode		=>vr_GR_CMODE,		--00:4bit color 01:8bit color 11/10:16bit color
+--		memres		=>vr_GR_SIZE,		--0:512x512 1:1024x1024
+--		hres	=>out_HMODE,
+--		vres	=>out_VMODE(0),
+--		txten	=>vr_TXTEN,
+--		grpen	=>vr_GREN,
+--		spren	=>vr_SPREN,
+----		txten	=>'1',
+----		grpen	=>'1',
+----		spren	=>'1',
+--		graphen	=>vr_GRPEN,
+--		pri_sp	=>vr_PRI_SP,
+--		pri_tx	=>vr_PRI_TX,
+--		pri_gr	=>vr_PRI_GR,
+--		grpri	=>vr_GR_PRI,
+--		exon		=>vr_exon,
+--		hp			=>vr_HP,
+--		bp			=>vr_BP,
+--		gg			=>vr_GG,
+--		gt			=>vr_GT,
+--		ah			=>vr_AH,
+--		ys          =>vr_YS,
+--		vht         =>vr_VHT,
+--		lsel        =>LRAMSEL,
+--
+--		lbaddr	=>LBUFADR,
+--		lbwdat	=>LBUFWD,
+--		lbwr	=>LBUFWR,
+--		
+--		hcomp	=>HCOMP,
+--		vpstart	=>VPSTART,
+--		hfreq	=>out_hfreq,
+--		htotal	=>out_htotal,
+--		hvbgn	=>out_hvbgn,
+--		hvend	=>out_hvend,
+--		vtotal	=>out_vtotal,
+--		vvbgn	=>out_vvbgn,
+--		vvend	=>out_vvend,
+--		
+--		addrx	=>spr_x,
+--		addry	=>spr_y,
+--		sprite_in=>spr_dot,
+--		
+--		tpalno	=>tpal_pno,
+--		tpalin	=>tpal_pdat,
+--		tpal0in	=>tpal0_pdat,
+--		gpal0in =>gpal0_pdat,
+--		spalno	=>spal_pno,
+--		spalin	=>spal_pdat,
+--
+--		gpal0no	=>gpal_pnol,
+--		gpal1no	=>gpal_pnoh,
+--		gpalin	=>gpal_pdat,
+--	
+--		vvideoen	=>VID_VVIDEN,
+--		rintline=>out_rintl,
+--		rint	=>VID_RINT,
+--		
+----		vlineno	=>vlineno,
+--	
+--		gclrbgn	=>vr_fcbgn,
+--		gclrend	=>vr_fcend,
+--		gclrpage=>vr_rcpyplane,
+--		gclrbusy=>vr_fcbusy,
+--		
+--		hblank  =>VID_HRTC,
+--		vblank  =>VID_VRTC,
+--		
+--		vidclk	=>vidclk,
+--		vid_ce  =>vid_ce,
+--		rstn	=>vid_rstn
+--	);
 	vc	:vidcont generic map(RAMAWIDTH-1) port map(
 		t_base	=>"011100000000000000000000",
 		g_base	=>"011101000000000000000000",
@@ -3218,8 +3570,8 @@ begin
 
 		gmode		=>vr_GR_CMODE,		--00:4bit color 01:8bit color 11/10:16bit color
 		memres		=>vr_GR_SIZE,		--0:512x512 1:1024x1024
-		hres	=>out_HMODE,
-		vres	=>out_VMODE(0),
+		hres	=>vr_HD,
+		vres	=>vr_VD(0),
 		txten	=>vr_TXTEN,
 		grpen	=>vr_GREN,
 		spren	=>vr_SPREN,
@@ -3237,23 +3589,20 @@ begin
 		gg			=>vr_GG,
 		gt			=>vr_GT,
 		ah			=>vr_AH,
-		ys          =>vr_YS,
-		vht         =>vr_VHT,
-		lsel        =>LRAMSEL,
-
+		
 		lbaddr	=>LBUFADR,
 		lbwdat	=>LBUFWD,
 		lbwr	=>LBUFWR,
 		
 		hcomp	=>HCOMP,
 		vpstart	=>VPSTART,
-		hfreq	=>out_hfreq,
-		htotal	=>out_htotal,
-		hvbgn	=>out_hvbgn,
-		hvend	=>out_hvend,
-		vtotal	=>out_vtotal,
-		vvbgn	=>out_vvbgn,
-		vvend	=>out_vvend,
+		hfreq	=>vr_hfreq,
+		htotal	=>vr_htotal,
+		hvbgn	=>vr_hvbgn,
+		hvend	=>vr_hvend,
+		vtotal	=>vr_vtotal,
+		vvbgn	=>vr_vvbgn,
+		vvend	=>vr_vvend,
 		
 		addrx	=>spr_x,
 		addry	=>spr_y,
@@ -3262,7 +3611,7 @@ begin
 		tpalno	=>tpal_pno,
 		tpalin	=>tpal_pdat,
 		tpal0in	=>tpal0_pdat,
-		gpal0in =>gpal0_pdat,
+
 		spalno	=>spal_pno,
 		spalin	=>spal_pdat,
 
@@ -3271,23 +3620,21 @@ begin
 		gpalin	=>gpal_pdat,
 	
 		vvideoen	=>VID_VVIDEN,
-		rintline=>out_rintl,
+		rintline=>vr_rintline,
 		rint	=>VID_RINT,
 		
---		vlineno	=>vlineno,
+		vlineno	=>vlineno,
 	
 		gclrbgn	=>vr_fcbgn,
 		gclrend	=>vr_fcend,
 		gclrpage=>vr_rcpyplane,
 		gclrbusy=>vr_fcbusy,
 		
-		hblank  =>VID_HRTC,
-		vblank  =>VID_VRTC,
-		
 		vidclk	=>vidclk,
-		vid_ce  =>vid_ce,
+		sysclk	=>sysclk,
 		rstn	=>vid_rstn
 	);
+
 	
 	rcpy	:rastercopy generic map(
 		arange	=>RAMAWIDTH-brsize-1,
@@ -3774,9 +4121,10 @@ begin
 		IVECT	=>IVECT6,
 		INTack	=>IACK6,
 		IVack	=>mfp_ivack,
-			
+
+		kbdtype	=>pkbdtype,
+		
 		clk		=>sysclk,
-		ce      =>sys_ce,
 		rstn	=>srstn
 	);
 	

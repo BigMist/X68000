@@ -195,7 +195,7 @@ assign SDRAM2_nWE = 1;
 
 
 //////////////////////////////////////////////////////////////////
-assign LED  = ~ioctl_download;
+assign LED  =  ~ioctl_download;
  
 //assign AUDIO_MIX = status[3:2];
 
@@ -223,8 +223,10 @@ parameter CONF_STR = {
 	"TD,Load SRAM from SD Card;",
 	"TE,Save SRAM to SD Card;",
 	`SEP
-	"O3,Video Frequency,60fps,Original;",
-   `SEP
+	"OFG,KBD layout,JP Func.,JP Pos.,US Std,US Alt;",
+	"O6,Swap Joysticks,No,Yes;",
+	"O5,Mute Midi,No,Yes;",
+	`SEP
 	"O4,CPU speed,Normal,Turbo;",
 	"T7,NMI Button;",
 	"T8,Power Button;",
@@ -235,7 +237,7 @@ parameter CONF_STR = {
 
 /////////////////  CLOCKS  ////////////////////////
 
-wire clk_ram, clk_sys;
+wire clk_ram, clk_sys, clk_vid, clk_hdmi;
 wire pll_locked;
 
 pll pll
@@ -243,9 +245,12 @@ pll pll
 	.inclk0(CLOCK_50),
 	.c0(clk_ram), // 80mhz
 	.c1(clk_sys), // 40mhz
+//	.c2(clk_hdmi),
 	.locked(pll_locked)
 );
 
+assign clk_vid=clk_ram;
+assign clk_hdmi=clk_vid;
 
 // Video oscillators
 // 40.00000 - CPU/Main Oscillator
@@ -504,15 +509,16 @@ end
 
 ////////////////////////////  MJ32pi  ////////////////////////////////// 
 
-`ifdef INTERNAL_MT32
 wire        mj32_mute  = ~status[5];
 wire [15:0] mj32_i2s_r, mj32_i2s_l;
 
+`ifdef INTERNAL_MT32
+
 i2s_decoder i2s_inst (
- .clk(clk_sys),         // Conecta el reloj del sistema
- .sck(MIDI_CLKBD),      // Señal de reloj del I2S
- .sd(MIDI_DABD),        // Señal de datos seriales del I2S
- .left_out(mj32_i2s_l), // Salida de datos para el canal izquierdo
+ .clk      (clk_sys   ),         // Conecta el reloj del sistema
+ .sck      (MIDI_CLKBD),      // Señal de reloj del I2S
+ .sd       (MIDI_DABD ),        // Señal de datos seriales del I2S
+ .left_out (mj32_i2s_l), // Salida de datos para el canal izquierdo
  .right_out(mj32_i2s_r) // Salida de datos para el canal derecho
 );
 
@@ -532,6 +538,7 @@ wire [1:0] fdsync = status[10:9];
 wire [1:0] fdeject = status[12:11];
 wire sramld	= status[13];
 wire sramst = status[14];
+wire [1:0] kbdtype = status[16:15];
 
 //assign CLK_VIDEO = clk_vid;
 //assign AUDIO_S = 1;
@@ -580,7 +587,7 @@ X68K_top X68K_top
 (
 	.ramclk     (clk_ram),
 	.sysclk     (clk_sys),
-	.vidclk     (clk_ram),
+	.vidclk     (clk_vid),
 	.fdcclk     (clk_sys),
 	.sndclk     (clk_sys),
 	
@@ -640,8 +647,8 @@ X68K_top X68K_top
 	.mist_buffdin(sd_buff_din),
 	.mist_buffwr(sd_buff_wr),
 
-	.pJoyA(joyA),
-	.pJoyB(joyB),
+	.pJoyA(status[6] ? joyA : joyB),
+	.pJoyB(status[6] ? joyB : joyA),
 
 	.pFDSYNC(fdsync),
 	.pFDEJECT(fdd_eject_d),
@@ -650,9 +657,10 @@ X68K_top X68K_top
 	.pLed(disk_led),
 	.pDip(4'b0000),
 	.pPsw({~NMI,~POWER}),
-	.pSramld(sramld),
+	.pSramld(sramld),        
 	.pSramst(sramst),
-
+	.pkbdtype(kbdtype),
+	
 `ifdef INTERNAL_MT32
 	.pMidi_in(UART_RX),
 	.pMidi_out(MIDI_OUT),
@@ -680,9 +688,7 @@ X68K_top X68K_top
 	.pSndPCML(pcm_l),
 	.pSNDPCMR(pcm_r),
 
-	.rstn(reset_n & ~reset),
-	.dHMode(status[45:44]),
-	.dVMode(status[46])
+	.rstn(reset_n & ~reset)
 );
 
 wire ldr_ack;
@@ -733,18 +739,10 @@ endfunction
 
 reg [15:0] cmp_l, cmp_r;
 
-`ifdef INTERNAL_MT32
 always @(posedge clk_sys) begin
 	out_l <= aud_l + mj32_i2s_l;
 	out_r <= aud_r + mj32_i2s_r;
 end
-`else
-always @(posedge clk_sys) begin
-	out_l <= aud_l;
-	out_r <= aud_r;
-end
-
-`endif
 
 `ifdef I2S_AUDIO
 
@@ -802,11 +800,12 @@ audiodac_r(
 
   
 ////////////////////////////  VIDEO  ////////////////////////////////////
-  
+ 
 mist_video #(.COLOR_DEPTH(8),
 	.OUT_COLOR_DEPTH(VGA_BITS),
-	.USE_BLANKS(1),
+	.USE_BLANKS(0),
 	.VIDEO_CLEANER(1),
+	.OSD_COLOR(3'b000),
 	.BIG_OSD(BIG_OSD)) 
 mist_video (	
    .*,
@@ -839,8 +838,8 @@ mist_video (
 
 	
 `ifdef USE_HDMI
-i2c_master #(40_000_000) i2c_master (
-	.CLK         (clk_sys),
+i2c_master #(80_000_000) i2c_master (
+	.CLK         (clk_hdmi),
 	.I2C_START   (i2c_start),
 	.I2C_READ    (i2c_read),
 	.I2C_ADDR    (i2c_addr),
@@ -856,15 +855,16 @@ i2c_master #(40_000_000) i2c_master (
 );
 
 mist_video #(
-	.COLOR_DEPTH(6),
+	.COLOR_DEPTH(8),
 	.OUT_COLOR_DEPTH(8),
 	.USE_BLANKS(1),
+	.OSD_COLOR(3'b000),
 	.BIG_OSD(BIG_OSD),
 	.VIDEO_CLEANER(1)
 )
 
 hdmi_video (
-	.clk_sys     ( clk_ram   ),
+	.clk_sys     ( clk_hdmi   ),
 
 	// OSD SPI interface
 	.SPI_SCK     ( SPI_SCK    ),
@@ -892,7 +892,6 @@ hdmi_video (
 	.VGA_DE      ( HDMI_DE     )
 );
 assign HDMI_PCLK = clk_ram;
-
 `endif
 
 endmodule

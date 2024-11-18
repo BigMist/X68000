@@ -28,4 +28,6 @@ set_global_assignment -name VHDL_FILE ../rtl/pwrcont.vhd
 set_global_assignment -name VHDL_FILE ../rtl/IOcont.vhd
 set_global_assignment -name VHDL_FILE ../rtl/X68K_top.vhd
 set_global_assignment -name SDC_FILE  X68000.sdc
+set_global_assignment -name QIP_FILE  ../rtl/MFP/KBIF/ktbln_m.qip
+set_global_assignment -name QIP_FILE  ../rtl/MFP/KBIF/ktble0_m.qip
 #set_global_assignment -name SYSTEMVERILOG_FILE X68000.sv
