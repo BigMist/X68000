@@ -2,16 +2,15 @@ LIBRARY	IEEE;
 	USE	IEEE.STD_LOGIC_1164.ALL;
 	USE IEEE.STD_LOGIC_ARITH.ALL;
 	USE	IEEE.STD_LOGIC_UNSIGNED.ALL;
-	use work.FDC_timing.all;
 
 entity X68K_top is
 generic(
 	RCFREQ		:integer	:=80;			--SDRAM clock MHz
 	SCFREQ		:integer	:=10000;		--kHz
-	FCFREQ		:integer	:=40000;		--FDC clock
-	ACFREQ		:integer	:=40000;		--Audio clock
+	FCFREQ		:integer	:=30000;		--FDC clock
+	ACFREQ		:integer	:=32000;		--Audio clock
 	DACFREQ		:integer	:=16000;		--Audio DAC freq
-	DEBUG			:std_logic_vector(7 downto 0)	:="00110010"	--nop,SPRBGONOFF,OPMCH_ONOFF,PAUSE_ONOFF,GRP_ONOFF,SCR_ONOFF,ADPCM_ONOFF,CYCLERESET
+	DEBUG			:std_logic_vector(7 downto 0)	:="00000000"	--nop,SPRBGONOFF,OPMCH_ONOFF,PAUSE_ONOFF,GRP_ONOFF,SCR_ONOFF,nop,CYCLERESET
 );
 port(
 	ramclk	:in std_logic;
@@ -19,26 +18,16 @@ port(
 	vidclk	:in std_logic;
 	fdcclk	:in std_logic;
 	sndclk	:in std_logic;
-
-	ram_ce  :in std_logic := '1';
-	sys_ce  :in std_logic;
-	mpu_cep :in std_logic;
-	mpu_cen :in std_logic;
-	fd_ce   :in std_logic := '1';
-	snd_ce  :in std_logic;
-	opm_ce  :in std_logic_vector(1 downto 0);
-	
-	cm_out  :out std_logic;
-	vid_hz  :in std_logic;
-
 	plllock	:in std_logic;
-	CPUS    :in std_logic := '0';
+
+	opm_ce  :in std_logic_vector(1 downto 0);
+	oplmode :in std_logic;
 	
 	sysrtc	:in std_logic_vector(64 downto 0);
 	
    -- SD-RAM ports
-   -- pMemClk     : out std_logic;                        -- SD-RAM Clock
-   pMemCke     : out std_logic;                        -- SD-RAM Clock enable
+   pMemClk     : out std_logic;                        -- SD-RAM Clock
+   pMemCke     : out std_logic;                 		-- SD-RAM Clock enable
    pMemCs_n    : out std_logic;                        -- SD-RAM Chip select
    pMemRas_n   : out std_logic;                        -- SD-RAM Row/RAS
    pMemCas_n   : out std_logic;                        -- SD-RAM /CAS
@@ -65,29 +54,29 @@ port(
    pPs2Datout	: out std_logic;
    pPmsClkin	: in std_logic;
    pPmsClkout	: out std_logic;
-	pPmsDatin	: in std_logic;
+   pPmsDatin	: in std_logic;
    pPmsDatout	: out std_logic;
-   pkbdtype        :in std_logic_vector(1 downto 0);
 
     -- Joystick ports (Port_A, Port_B)
 	pJoyA       : in std_logic_vector( 5 downto 0);
    pJoyB       : in std_logic_vector( 5 downto 0);
    pStrA			: out std_logic;
 	pStrB			: out std_logic;
+   -- SD/MMC slot ports
+	pSd_miso		: in std_logic;
+   pSd_mosi		: out std_logic;
+   pSd_clk		: out std_logic;
+   pSd_cs		: out std_logic;
 
-	pFDSYNC		:in std_logic_Vector(1 downto 0);
-	pFDEJECT		:in std_logic_Vector(1 downto 0);
-	pFDMOTOR		:out std_logic;
-	
 --MiSTer diskimage
 	mist_mounted	:in std_logic_vector(3 downto 0);	--SRAM & HDD & FDD1 &FDD0
 	mist_readonly	:in std_logic_vector(3 downto 0);
 	mist_imgsize	:in std_logic_vector(63 downto 0);
 
-	mist_lba		:out std_logic_vector(31 downto 0);
+	mist_lba			:out std_logic_vector(31 downto 0);
 	mist_rd			:out std_logic_vector(3 downto 0);
 	mist_wr			:out std_logic_vector(3 downto 0);
-	mist_ack		:in std_logic_vector(3 downto 0);
+	mist_ack			:in std_logic_vector(3 downto 0);
 
 	mist_buffaddr	:in std_logic_vector(8 downto 0);
 	mist_buffdout	:in std_logic_vector(7 downto 0);
@@ -98,10 +87,13 @@ port(
 	pDip       : in std_logic_vector( 3 downto 0);     -- 0=ON,  1=OFF(default on shipment)
 	pLed       : out std_logic;
 	pPsw			: in std_logic_vector(1 downto 0);
+	pfdwait	:in std_logic_vector(1 downto 0);
+	pkbdtype	:in std_logic_vector(1 downto 0);
 	
 	pSramld		:in std_logic;
 	pSramst		:in std_logic;
 
+	pTonemode	:in std_logic_vector(1 downto 0);
 	pMidi_in		:in std_logic;
 	pMidi_out	:out std_logic;
 
@@ -109,25 +101,16 @@ port(
 	pVideoR		:out std_logic_vector(7 downto 0);
 	pVideoG		:out std_logic_vector(7 downto 0);
 	pVideoB		:out std_logic_vector(7 downto 0);
-	pVideoHB        :out std_logic;
-	pVideoVB        :out std_logic;
 	pVideoEN		:out std_logic;
 	pVideoHS		:out std_logic;
 	pVideoVS		:out std_logic;
-	pVideoF1        :buffer std_logic;
+	pVideoHB		:out std_logic;
+	pVideoVB		:out std_logic;
 	
 	pSndL		:out std_logic_vector(15 downto 0);
 	pSndR		:out std_logic_vector(15 downto 0);
 	
-	pSndYML		:out std_logic_vector(15 downto 0);
-	pSndYMR		:out std_logic_vector(15 downto 0);
-	
-	pSndPCML		:out std_logic_vector(15 downto 0);
-	pSndPCMR		:out std_logic_vector(15 downto 0);
-	
-	rstn		:in std_logic;
-	dHMode      :in std_logic_vector(1 downto 0) := "11";
-	dVMode      :in std_logic := '1'
+	rstn		:in std_logic
 );
 end X68K_top;
 
@@ -137,7 +120,7 @@ constant brsize		:integer	:=7;
 constant RAMAWIDTH	:integer	:=25;	--per byte
 
 constant DBIT_CYCLERESET	:integer	:=0;
-constant DBIT_ADPCM_ONOFF	:integer	:=1;
+--constant DBIT_ADPCM_ONOFF	:integer	:=1;
 constant DBIT_SCR_ONOFF		:integer	:=2;
 constant DBIT_GRP_ONOFF		:integer	:=3;
 constant DBIT_PAUSE_ONOFF	:integer	:=4;
@@ -164,7 +147,7 @@ signal	b_ack	:std_logic;
 signal	b_rd,b_rdn	:std_logic;
 signal	b_wr,b_wrn	:std_logic_vector(1 downto 0);
 -- for mpu
-signal	mpu_addr	:std_logic_vector(23 downto 0);
+signal	mpu_addr	:std_logic_vector(31 downto 0);
 signal	mpu_od		:std_logic_vector(15 downto 0);
 signal	mpu_oe		:std_logic;
 signal	mpu_ipl			:std_logic_vector(2 downto 0);
@@ -173,11 +156,7 @@ signal	mpu_as			:std_logic;
 signal	mpu_udsn			:std_logic;
 signal	mpu_ldsn			:std_logic;
 signal	mpu_rwn			:std_logic;
-signal   mpu_clke        :std_logic;
-signal   mpu_fc    :std_logic_vector(2 downto 0);
-signal   mpu_vpan  :std_logic;
-signal   i_rwn     :std_logic;
-signal   i_ASn     :std_logic;
+signal	mpu_clke			:std_logic;
 
 -- for memorymap
 signal	m_addr	:std_logic_vector(31 downto 0);
@@ -238,6 +217,7 @@ signal	dma_odat	:std_logic_vector(15 downto 0);
 signal	dma_doe		:std_logic;
 signal	dma_drd		:std_logic;
 signal	dma_dwr		:std_logic;
+signal	dma_int		:std_logic;
 
 -- for graphics line buffer
 signal	LRAMSEL	:std_logic;
@@ -304,19 +284,6 @@ signal	bg_PAT		:std_logic_vector(7 downto 0);
 --Disk emu
 signal	dem_rstn	:std_logic;
 signal	dem_initdone	:std_logic;
-signal	dem_fderamaddr	:std_logic_vector(22 downto 0);
-signal	dem_fderamrdat	:std_logic_vector(15 downto 0);
-signal	dem_fderamwdat	:std_logic_vector(15 downto 0);
-signal	dem_fderamwr	:std_logic;
-signal	dem_fecramaddrh	:std_logic_vector(14 downto 0);
-signal	dem_fecramaddrl	:std_logic_vector(7 downto 0);
-signal	dem_fecramwe	:std_logic;
-signal	dem_fecramrdat	:std_logic_vector(15 downto 0);
-signal	dem_fecramwdat	:std_logic_vector(15 downto 0);
-signal	dem_fecramrd	:std_logic;
-signal	dem_fecramwr	:std_logic;
-signal	dem_fdetracklen	:std_logic_vector(13 downto 0);
-signal	dem_fecrambusy	:std_logic;
 -- for FDC
 signal	FDC_cs		:std_logic;
 signal	FDC_csn		:std_logic;
@@ -330,8 +297,6 @@ signal	FDC_INTn	:std_logic;
 signal	FDC_INT		:std_logic;
 signal	FDC_WAIT	:std_logic;
 signal	FD_hmssft	:std_logic;
-signal	FD_int0		:integer range 0 to (BR_300_D*FCFREQ/1000000);
-signal	FD_int1		:integer range 0 to (BR_300_D*FCFREQ/1000000);
 signal	FDC_READYn	:std_logic;
 signal	FDC_READYm	:std_logic;
 signal	FDSREG		:std_logic_vector(15 downto 0);
@@ -339,24 +304,14 @@ signal	FD_DE		:std_logic_vector(1 downto 0);
 signal	FDC_BUSY	:std_logic;
 signal	FDCPY_BUSY	:std_logic;
 signal	FDC_indisk	:std_logic_vector(1 downto 0);
-signal	FDC_wrenn	:std_logic;
-signal	FDC_wrbitn	:std_logic;
-signal	FDC_rdbitn	:std_logic;
-signal	FDC_stepn	:std_logic;
-signal	FDC_sdirn	:std_logic;
-signal	FDC_track0n	:std_logic;
-signal	FDC_indexn	:std_logic;
-signal	FDC_siden	:std_logic;
-signal	FDC_wprotn	:std_logic;
-signal	FDC_USELn	:std_logic_vector(3 downto 0);
-signal	FDC_MOTORn	:std_logic_vector(3 downto 0);
-signal	FDC_MFM		:std_logic;
-signal	FDC_eject	:std_logic_vector(3 downto 0);
-signal	FDD_eject	:std_logic_vector(1 downto 0);
-signal	FDD_indisk	:std_logic_vector(1 downto 0);
-signal	FDD_USELn	:std_logic_vector(1 downto 0);
 signal	FD_USELn	:std_logic_vector(1 downto 0);
 signal	FD_MOTORn	:std_logic_vector(1 downto 0);
+signal	fdc_mfm		:std_logic;
+signal	fdc_sectsize:std_logic_Vector(1 downto 0);
+signal	fdc_fmterr	:std_logic;
+signal	fdc_usel		:std_logic_vector(1 downto 0);
+signal	fdc_eject	:std_logic_Vector(3 downto 0);
+signal	fd_bitsft	:std_logic;
 
 --for SASI
 signal	SASI_CS		:std_logic;
@@ -379,15 +334,6 @@ signal	SASI_IO		:std_logic;
 signal	SASI_CD		:std_logic;
 signal	SASI_MSG	:std_logic;
 signal	SASI_RST	:std_logic;
-
-signal	SASI_SELf	:std_logic;
-signal	SASI_BSYf	:std_logic;
-signal	SASI_REQf	:std_logic;
-signal	SASI_ACKf	:std_logic;
-signal	SASI_IOf	:std_logic;
-signal	SASI_CDf	:std_logic;
-signal	SASI_MSGf	:std_logic;
-signal	SASI_RSTf	:std_logic;
 
 -- IO unit
 signal	IOU_rdat	:std_logic_vector(7 downto 0);
@@ -545,7 +491,6 @@ signal	tpal_pdat	:std_logic_vector(15 downto 0);
 signal	spal_pno	:std_logic_vector(7 downto 0);
 signal	spal_pdat	:std_logic_vector(15 downto 0);
 signal	tpal0_pdat	:std_logic_vector(15 downto 0);
-signal	gpal0_pdat	:std_logic_vector(15 downto 0);
 --graphics palette
 signal	gpal_cs		:std_logic;
 signal	gpal_rdat	:std_logic_vector(15 downto 0);
@@ -570,14 +515,28 @@ signal	vidVS	:std_logic;
 signal	vidEN	:std_logic;
 
 --for OPM
-signal	opm_csn		:std_logic;
+signal	opm_cen		:std_logic;
 signal	opm_odat	:std_logic_vector(7 downto 0);
+signal	opm_odat1	:std_logic_vector(7 downto 0);
+signal	opm_odat2	:std_logic_vector(7 downto 0);
 signal	opm_doe		:std_logic;
+signal	opm_doe1		:std_logic;
+signal	opm_doe2		:std_logic;
 signal	opm_intn	:std_logic;
+signal	opm_intn1	:std_logic;
+signal	opm_intn2	:std_logic;
+
 signal	opm_ct2		:std_logic;
+signal	opm_ct21	:std_logic;
+signal	opm_ct22	:std_logic;
+
 signal	opm_sft		:std_logic;
 signal	opm_sndl		:std_logic_vector(15 downto 0);
 signal	opm_sndr		:std_logic_vector(15 downto 0);
+signal	opm_sndl1	:std_logic_vector(15 downto 0);
+signal	opm_sndr1	:std_logic_vector(15 downto 0);
+signal	opm_sndl2	:std_logic_vector(15 downto 0);
+signal	opm_sndr2	:std_logic_vector(15 downto 0);
 signal	iowait_opm		:std_logic;
 signal	opm_wstate	:integer range 0 to 3;
 
@@ -593,12 +552,13 @@ signal	pcm_sndL	:std_logic_vector(15 downto 0);
 signal	pcm_sndR	:std_logic_vector(15 downto 0);
 signal	pcm_enL,pcm_enR	:std_logic;
 signal	pcm_clkmode	:std_logic;
+signal	pcm_clkmode1	:std_logic;
+signal	pcm_clkmode2	:std_logic;
 signal	pcm_clkdiv	:std_logic_vector(1 downto 0);
 
 --Sound DAC
 signal	mix_sndL,mix_sndR	:std_logic_vector(15 downto 0);
 signal	sndL,sndR	:std_logic_vector(15 downto 0);
-signal	dacsft		:std_logic;
 
 --for I2C I/F
 signal	SDAIN,SDAOUT	:std_logic;
@@ -679,6 +639,9 @@ signal	midi_rd		:std_logic;
 signal	midi_wr		:std_logic;
 signal	midi_int		:std_logic;
 signal	midi_ivect	:std_logic_vector(7 downto 0);
+signal	midi_sft		:std_logic;
+constant midis_div	:integer	:=(SCFREQ/1000)-1;
+signal	midi_csft	:std_logic;
 
 --Contrast controller
 constant	context	:integer	:=2;
@@ -688,100 +651,42 @@ signal	contc_rdat	:std_logic_vector(7 downto 0);
 signal	contc_doe	:std_logic;
 
 --for debug
+signal	dopmonoff:std_logic_vector(7 downto 0);
 signal	dwait		:std_logic;
 signal	dsprbgen	:std_logic_vector(1 downto 0);
 
-signal  ce          :std_logic := '1';
-signal out_HMODE		:std_logic_vector(1 downto 0);
-signal out_VMODE		:std_logic_vector(1 downto 0);
-signal out_hfreq        :std_logic;
-signal out_htotal		:std_logic_vector(7 downto 0);
-signal out_hsynl		:std_logic_vector(7 downto 0);
-signal out_hvbgn		:std_logic_vector(7 downto 0);
-signal out_hvend		:std_logic_vector(7 downto 0);
-signal out_vtotal		:std_logic_vector(9 downto 0);
-signal out_vsynl		:std_logic_vector(9 downto 0);
-signal out_vvbgn		:std_logic_vector(9 downto 0);
-signal out_vvend		:std_logic_vector(9 downto 0);
-signal out_rintl	    :std_logic_vector(9 downto 0);
-signal vid_ce           :std_logic;
-signal vr_DC            :std_logic;
+component mainpll10nanodemu
+	port (
+		refclk   : in  std_logic := '0'; --  refclk.clk
+		rst      : in  std_logic := '0'; --   reset.reset
+		outclk_0 : out std_logic;        -- outclk0.clk
+		outclk_1 : out std_logic;        -- outclk1.clk
+		outclk_2 : out std_logic;        -- outclk2.clk
+		outclk_3 : out std_logic;        -- outclk3.clk
+		outclk_4 : out std_logic;        -- outclk4.clk
+		outclk_5 : out std_logic;        -- outclk5.clk
+		outclk_6 : out std_logic;        -- outclk6.clk
+		locked   : out std_logic         --  locked.export
+	);
+end component;
 
 component TG68
-	port(
+   port(        
 		clk           : in std_logic;
 		reset         : in std_logic;
-		clkena_in     : in std_logic:='1';
-		data_in       : in std_logic_vector(15 downto 0);
-		IPL           : in std_logic_vector(2 downto 0):="111";
-		dtack         : in std_logic;
-		addr          : out std_logic_vector(31 downto 0);
-		data_out      : out std_logic_vector(15 downto 0);
-		as            : out std_logic;
-		uds           : out std_logic;
-		lds           : out std_logic;
-		rw            : out std_logic;
-		drive_data    : out std_logic				--enable for data_out driver
-	);
+        clkena_in     : in std_logic:='1';
+        data_in       : in std_logic_vector(15 downto 0);
+        IPL           : in std_logic_vector(2 downto 0):="111";
+        dtack         : in std_logic;
+        addr          : out std_logic_vector(31 downto 0);
+        data_out      : out std_logic_vector(15 downto 0);
+        as            : out std_logic;
+        uds           : out std_logic;
+        lds           : out std_logic;
+        rw            : out std_logic;
+        drive_data    : out std_logic				--enable for data_out driver
+        );
 end component;
-
-component cpu_wrapper
-	port(
-		clk          :in  std_logic;
-		clk10m       :in  std_logic;
-		phi1_ce      :in  std_logic;
-		phi2_ce      :in  std_logic;
-		cpu_select   :in  std_logic;
-		reset_n      :in  std_logic;
-		din          :in  std_logic_vector(15 downto 0);
-		dTACK_n      :in  std_logic;
-		dma_active_n :in  std_logic;
-		IPL          :in  std_logic_vector(2 downto 0);
-		dout         :out std_logic_vector(15 downto 0);
-		FC           :out std_logic_vector(2 downto 0);
-		rw_n         :out std_logic;
-		address      :out std_logic_vector(23 downto 0);
-		AS_n         :out std_logic;
-		UDS_n        :out std_logic;
-		LDS_n        :out std_logic;
-		OE           :out std_logic
-	);
-end component;
-
-component fx68k
-	port(
-		clk      : in  std_logic;
-		HALTn    : in  std_logic;
-		extReset : in  std_logic;
-		pwrUp    : in  std_logic;
-		enPhi1   : in  std_logic;
-		enPhi2   : in  std_logic;
-		DTACKn   : in  std_logic;
-		VPAn     : in  std_logic;
-		BERRn    : in  std_logic;
-		BRn      : in  std_logic;
-		BGACKn   : in  std_logic;
-		IPL0n    : in  std_logic;
-		IPL1n    : in  std_logic;
-		IPL2n    : in  std_logic;
-		iEdb     : in  std_logic_vector(15 downto 0);
-		eRWn     : out std_logic;
-		ASn      : out std_logic;
-		LDSn     : out std_logic;
-		UDSn     : out std_logic;
-		E        : out std_logic;
-		VMAn     : out std_logic;	
-		FC0      : out std_logic;
-		FC1      : out std_logic;
-		FC2      : out std_logic;
-		BGn      : out std_logic;
-		oRESETn  : out std_logic;
-		oHALTEDn : out std_logic;
-		oEdb     : out std_logic_vector(15 downto 0);
-		eab      : out std_logic_vector(23 downto 1)
-	);
-end component;
-
 
 component  memcont
 generic(
@@ -800,84 +705,84 @@ port(
 	PMEMRAS_N	:OUT	STD_LOGIC;							-- SD-RAM ROW/RAS
 	PMEMCAS_N	:OUT	STD_LOGIC;							-- SD-RAM /CAS
 	PMEMWE_N	:OUT	STD_LOGIC;							-- SD-RAM /WE
-	PMEMUDQ		:OUT	STD_LOGIC;							-- SD-RAM UDQM
-	PMEMLDQ		:OUT	STD_LOGIC;							-- SD-RAM LDQM
+   PMemUdq		: out std_logic;                        -- SD-RAM UDQM
+   PMemLdq		: out std_logic;                        -- SD-RAM LDQM
 	PMEMBA1		:OUT	STD_LOGIC;							-- SD-RAM BANK SELECT ADDRESS 1
 	PMEMBA0		:OUT	STD_LOGIC;							-- SD-RAM BANK SELECT ADDRESS 0
 	PMEMADR		:OUT	STD_LOGIC_VECTOR( 12 DOWNTO 0 );	-- SD-RAM ADDRESS
 	PMEMDAT		:INOUT	STD_LOGIC_VECTOR( 15 DOWNTO 0 );	-- SD-RAM DATA
 
-	b_addr		:in std_logic_vector(awidth-1 downto 0);
-	b_wdat		:in std_logic_vector(15 downto 0);
-	b_rdat		:out std_logic_vector(15 downto 0);
-	b_rd		:in std_logic;
-	b_wr		:in std_logic_vector(1 downto 0);
-	b_rmw		:in std_logic_vector(1 downto 0);
-	b_rmwmsk	:in std_logic_vector(15 downto 0);
-	b_ack		:out std_logic;
+	b_addr	:in std_logic_vector(awidth-1 downto 0);
+	b_wdat	:in std_logic_vector(15 downto 0);
+	b_rdat	:out std_logic_vector(15 downto 0);
+	b_rd	:in std_logic;
+	b_wr	:in std_logic_vector(1 downto 0);
+	b_rmw	:in std_logic_vector(1 downto 0);
+	b_rmwmsk:in std_logic_vector(15 downto 0);
+	b_ack	:out std_logic;
 
-	b_csaddr	:in std_logic_vector(awidth-BRSIZE-1 downto 0)	:=(others=>'0');
-	b_cdaddr	:in std_logic_vector(awidth-BRSIZE-1 downto 0)	:=(others=>'0');
+	b_csaddr	:in std_logic_vector(awidth-brsize-1 downto 0)	:=(others=>'0');
+	b_cdaddr	:in std_logic_vector(awidth-brsize-1 downto 0)	:=(others=>'0');
 	b_cplane	:in std_logic_vector(3 downto 0)	:=(others=>'0');
 	b_cpy		:in std_logic;
-	b_cack		:out std_logic;
+	b_cack	:out std_logic;
 	
-	g00_addr	:in std_logic_vector(awidth-1 downto 0);
-	g00_rd		:in std_logic;
-	g00_rdat	:out std_logic_vector(15 downto 0);
-	g00_ack		:out std_logic;
+	g00_addr:in std_logic_vector(awidth-1 downto 0);
+	g00_rd	:in std_logic;
+	g00_rdat:out std_logic_vector(15 downto 0);
+	g00_ack	:out std_logic;
 
-	g01_addr	:in std_logic_vector(awidth-1 downto 0);
-	g01_rd		:in std_logic;
-	g01_rdat	:out std_logic_vector(15 downto 0);
-	g01_ack		:out std_logic;
+	g01_addr:in std_logic_vector(awidth-1 downto 0);
+	g01_rd	:in std_logic;
+	g01_rdat:out std_logic_vector(15 downto 0);
+	g01_ack	:out std_logic;
 
-	g02_addr	:in std_logic_vector(awidth-1 downto 0);
-	g02_rd		:in std_logic;
-	g02_rdat	:out std_logic_vector(15 downto 0);
-	g02_ack		:out std_logic;
+	g02_addr:in std_logic_vector(awidth-1 downto 0);
+	g02_rd	:in std_logic;
+	g02_rdat:out std_logic_vector(15 downto 0);
+	g02_ack	:out std_logic;
 
-	g03_addr	:in std_logic_vector(awidth-1 downto 0);
-	g03_rd		:in std_logic;
-	g03_rdat	:out std_logic_vector(15 downto 0);
-	g03_ack		:out std_logic;
+	g03_addr:in std_logic_vector(awidth-1 downto 0);
+	g03_rd	:in std_logic;
+	g03_rdat:out std_logic_vector(15 downto 0);
+	g03_ack	:out std_logic;
 
-	g10_addr	:in std_logic_vector(awidth-1 downto 0);
-	g10_rd		:in std_logic;
-	g10_rdat	:out std_logic_vector(15 downto 0);
-	g10_ack		:out std_logic;
+	g10_addr:in std_logic_vector(awidth-1 downto 0);
+	g10_rd	:in std_logic;
+	g10_rdat:out std_logic_vector(15 downto 0);
+	g10_ack	:out std_logic;
 
-	g11_addr	:in std_logic_vector(awidth-1 downto 0);
-	g11_rd		:in std_logic;
-	g11_rdat	:out std_logic_vector(15 downto 0);
-	g11_ack		:out std_logic;
+	g11_addr:in std_logic_vector(awidth-1 downto 0);
+	g11_rd	:in std_logic;
+	g11_rdat:out std_logic_vector(15 downto 0);
+	g11_ack	:out std_logic;
 
-	g12_addr	:in std_logic_vector(awidth-1 downto 0);
-	g12_rd		:in std_logic;
-	g12_rdat	:out std_logic_vector(15 downto 0);
-	g12_ack		:out std_logic;
+	g12_addr:in std_logic_vector(awidth-1 downto 0);
+	g12_rd	:in std_logic;
+	g12_rdat:out std_logic_vector(15 downto 0);
+	g12_ack	:out std_logic;
 
-	g13_addr	:in std_logic_vector(awidth-1 downto 0);
-	g13_rd		:in std_logic;
-	g13_rdat	:out std_logic_vector(15 downto 0);
-	g13_ack		:out std_logic;
+	g13_addr:in std_logic_vector(awidth-1 downto 0);
+	g13_rd	:in std_logic;
+	g13_rdat:out std_logic_vector(15 downto 0);
+	g13_ack	:out std_logic;
 
-	t0_addr		:in std_logic_vector(awidth-3 downto 0);
-	t0_rd		:in std_logic;
-	t0_rdat0	:out std_logic_vector(15 downto 0);
-	t0_rdat1	:out std_logic_vector(15 downto 0);
-	t0_rdat2	:out std_logic_vector(15 downto 0);
-	t0_rdat3	:out std_logic_vector(15 downto 0);
-	t0_ack		:out std_logic;
+	t0_addr	:in std_logic_vector(awidth-3 downto 0);
+	t0_rd	:in std_logic;
+	t0_rdat0:out std_logic_vector(15 downto 0);
+	t0_rdat1:out std_logic_vector(15 downto 0);
+	t0_rdat2:out std_logic_vector(15 downto 0);
+	t0_rdat3:out std_logic_vector(15 downto 0);
+	t0_ack	:out std_logic;
 	
-	t1_addr		:in std_logic_vector(awidth-3 downto 0);
-	t1_rd		:in std_logic;
-	t1_rdat0	:out std_logic_vector(15 downto 0);
-	t1_rdat1	:out std_logic_vector(15 downto 0);
-	t1_rdat2	:out std_logic_vector(15 downto 0);
-	t1_rdat3	:out std_logic_vector(15 downto 0);
-	t1_ack		:out std_logic;
-
+	t1_addr	:in std_logic_vector(awidth-3 downto 0);
+	t1_rd	:in std_logic;
+	t1_rdat0:out std_logic_vector(15 downto 0);
+	t1_rdat1:out std_logic_vector(15 downto 0);
+	t1_rdat2:out std_logic_vector(15 downto 0);
+	t1_rdat3:out std_logic_vector(15 downto 0);
+	t1_ack	:out std_logic;
+	
 	g0_caddr	:in std_logic_vector(awidth-1 downto 7);
 	g0_clear	:in std_logic;
 	
@@ -889,7 +794,7 @@ port(
 
 	g3_caddr	:in std_logic_vector(awidth-1 downto 7);
 	g3_clear	:in std_logic;
-	
+
 	fde_addr	:in std_logic_vector(awidth-1 downto 0)	:=(others=>'0');
 	fde_rdat	:out std_logic_vector(15 downto 0);
 	fde_wdat	:in std_logic_vector(15 downto 0)	:=(others=>'0');
@@ -904,17 +809,12 @@ port(
 	fec_rd		:in std_logic	:='0';
 	fec_wr		:in std_logic	:='0';
 	fec_busy	:out std_logic;
-
-	initdone	:out std_logic;
 	
+	initdone:out std_logic;
 	sclk	:in std_logic;
-	sys_ce  :in std_logic := '1';
 	vclk	:in std_logic;
-	vid_ce  :in std_logic := '1';
 	fclk	:in std_logic;
-	fd_ce   :in std_logic := '1';
 	rclk	:in std_logic;
-	ram_ce  :in std_logic := '1';
 	rstn	:in std_logic
 );
 end component;
@@ -926,51 +826,50 @@ port(
 	iack7	:out std_logic;
 	e_ln7	:in std_logic	:='1';
 	ivack7	:out std_logic_vector(7 downto 0);
-
+	
 	int6	:in std_logic	:='0';
 	vect6	:in std_logic_vector(7 downto 0)	:=x"1e";
 	iack6	:out std_logic;
 	e_ln6	:in std_logic	:='1';
 	ivack6	:out std_logic_vector(7 downto 0);
-
+	
 	int5	:in std_logic	:='0';
 	vect5	:in std_logic_vector(7 downto 0)	:=x"1d";
 	iack5	:out std_logic;
 	e_ln5	:in std_logic	:='1';
 	ivack5	:out std_logic_vector(7 downto 0);
-
+	
 	int4	:in std_logic	:='0';
 	vect4	:in std_logic_vector(7 downto 0)	:=x"1c";
 	iack4	:out std_logic;
 	e_ln4	:in std_logic	:='1';
 	ivack4	:out std_logic_vector(7 downto 0);
-
+	
 	int3	:in std_logic	:='0';
 	vect3	:in std_logic_vector(7 downto 0)	:=x"1b";
 	iack3	:out std_logic;
 	e_ln3	:in std_logic	:='1';
 	ivack3	:out std_logic_vector(7 downto 0);
-
+	
 	int2	:in std_logic	:='0';
 	vect2	:in std_logic_vector(7 downto 0)	:=x"1a";
 	iack2	:out std_logic;
 	e_ln2	:in std_logic	:='1';
 	ivack2	:out std_logic_vector(7 downto 0);
-
+	
 	int1	:in std_logic	:='0';
 	vect1	:in std_logic_vector(7 downto 0)	:=x"19";
 	iack1	:out std_logic;
 	e_ln1	:in std_logic	:='1';
 	ivack1	:out std_logic_vector(7 downto 0);
-
+	
 	IPL		:out std_logic_vector(2 downto 0);
 	addrin	:in std_logic_vector(23 downto 0);
 	addrout	:out std_logic_vector(23 downto 0);
 	rw		:in std_logic;
 	dtack	:in std_logic;
-
+	
 	clk		:in std_logic;
-	ce      :in std_logic := '1';
 	rstn	:in std_logic
 );
 end component;
@@ -994,13 +893,13 @@ port(
 	b_din	:in std_logic_vector(15 downto 0);
 	b_ack	:in std_logic;
 	b_conte	:out std_logic;
-
+	
 	drq0		:in std_logic;
 	dack0		:out std_logic;
 	pcli0		:in std_logic;
 	pclo0		:out std_logic;
 	doneo0		:out std_logic;
-
+	
 	drq1		:in std_logic;
 	dack1		:out std_logic;
 	pcli1		:in std_logic;
@@ -1018,20 +917,19 @@ port(
 	pcli3		:in std_logic;
 	pclo3		:out std_logic;
 	doneo3		:out std_logic;
-
+	
 	d_rd		:out std_logic;
 	d_wr		:out std_logic;
-
+	
 	donei		:in std_logic;
 
 	dtc			:out std_logic;
-
+	
 	int			:out std_logic;
 	ivect		:out std_logic_vector(7 downto 0);
 	iack		:in std_logic;
-
+	
 	clk			:in std_logic;
-	ce          :in std_logic := '1';
 	rstn		:in std_logic
 );
 
@@ -1068,7 +966,7 @@ port(
 	vmode	:in std_logic_vector(1 downto 0);
 	gsize	:in std_logic;
 	rcpybusy:in std_logic  :='0';
-
+	
 	ram_addr	:out std_logic_vector(22 downto 0);
 	ram_rdat	:in std_logic_vector(15 downto 0);
 	ram_wdat	:out std_logic_vector(15 downto 0);
@@ -1087,11 +985,10 @@ port(
 	iowait		:in std_logic	:='0';
 	
 	gpcen		:in std_logic;
-	
+
 	min			:in std_logic;
 	mon			:out std_logic;
 	sclk		:in std_logic;
-	sys_ce      :in std_logic := '1';
 	rstn		:in std_logic
 );
 end component;
@@ -1146,65 +1043,6 @@ port(
 );
 end component;
 
-component mister_sync
-port(
-	LRAMSEL		:out std_logic;
-	LRAMADR		:out std_logic_vector(9 downto 0);
-	LRAMDAT		:in std_logic_vector(15 downto 0);
-
-	RFOUT		:out std_logic_vector(5 downto 0);
-	GFOUT		:out std_logic_vector(5 downto 0);
-	BFOUT		:out std_logic_vector(5 downto 0);
-
-	HSYNC		:out std_logic;
-	VSYNC		:out std_logic;
-	
-	HMODE		:in std_logic_vector(1 downto 0);		-- "00":256 "01":512 "10":768 "11":768
-	VMODE		:in std_logic_vector(1 downto 0);		-- 1:512 0:256
-
-	HRL         :in std_logic;
-	hfreq       :in std_logic;
-	htotal		:in std_logic_vector(7 downto 0);
-	hsynl		:in std_logic_vector(7 downto 0);
-	hvbgn		:in std_logic_vector(7 downto 0);
-	hvend		:in std_logic_vector(7 downto 0);
-	vtotal		:in std_logic_vector(9 downto 0);
-	vsynl		:in std_logic_vector(9 downto 0);
-	vvbgn		:in std_logic_vector(9 downto 0);
-	vvend		:in std_logic_vector(9 downto 0);
-	hadj		:in std_logic_vector(7 downto 0);
-	rintl		:in std_logic_vector(9 downto 0);
-	
-	out_HMODE		:out std_logic_vector(1 downto 0);		-- "00":256 "01":512 "10":768 "11":768
-	out_VMODE		:out std_logic_vector(1 downto 0);		-- 1:512 0:256
-	out_hfreq       :out std_logic;
-	out_htotal		:out std_logic_vector(7 downto 0);
-	out_hsynl		:out std_logic_vector(7 downto 0);
-	out_hvbgn		:out std_logic_vector(7 downto 0);
-	out_hvend		:out std_logic_vector(7 downto 0);
-	out_vtotal		:out std_logic_vector(9 downto 0);
-	out_vsynl		:out std_logic_vector(9 downto 0);
-	out_vvbgn		:out std_logic_vector(9 downto 0);
-	out_vvend		:out std_logic_vector(9 downto 0);
-	out_rintl		:out std_logic_vector(9 downto 0);
-
-	VRTC		:out std_logic;
-	HRTC		:out std_logic;
-	VIDEN		:out std_logic;
-	
-	HCOMP		:out std_logic;
-	VCOMP		:out std_logic;
-	VPSTART		:out std_logic;
-	
-	pix_ce		:out std_logic;
-	v60hz       :in std_logic;
-	f1          :out std_logic;
-
-	gclk		:in std_logic;
-	rstn		:in std_logic
-);
-end component;
-
 component rastercopy
 generic(
 	arange	:integer	:=14;
@@ -1218,7 +1056,7 @@ port(
 	stop	:in std_logic;
 	busy	:out std_logic;
 
-	t_base	:in std_logic_vector(arange-1 downto 0);	
+	t_base	:in std_logic_vector(arange-1 downto 0);
 	srcaddr	:out std_logic_vector(arange-1 downto 0);
 	dstaddr	:out std_logic_vector(arange-1 downto 0);
 	cplane	:out std_logic_vector(3 downto 0);
@@ -1226,7 +1064,6 @@ port(
 	ack		:in std_logic;
 	
 	clk		:in std_logic;
-	ce      :in std_logic := '1';
 	rstn	:in std_logic
 );
 end component;
@@ -1246,130 +1083,33 @@ component VLINEBUF
 	);
 END component;
 
-component  FDCs is
-generic(
-	maxtrack	:integer	:=85;
-	maxbwidth	:integer	:=88;
-	preseek		:std_logic	:='0';
-	sysclk		:integer	:=20
-);
-port(
-	RDn		:in std_logic;
-	WRn		:in std_logic;
-	CSn		:in std_logic;
-	A0		:in std_logic;
-	WDAT	:in std_logic_vector(7 downto 0);
-	RDAT	:out std_logic_vector(7 downto 0);
-	DATOE	:out std_logic;
-	DACKn	:in std_logic;
-	DRQ		:out std_logic;
-	TC		:in std_logic;
-	INTn	:out std_logic;
-	WAITIN	:in std_logic	:='0';
 
-	WREN	:out std_logic;		--pin24
-	WRBIT	:out std_logic;		--pin22
-	RDBIT	:in std_logic;		--pin30
-	STEP	:out std_logic;		--pin20
-	SDIR	:out std_logic;		--pin18
-	WPRT	:in std_logic;		--pin28
-	track0	:in std_logic;		--pin26
-	index	:in std_logic;		--pin8
-	side	:out std_logic;		--pin32
-	usel	:out std_logic_vector(1 downto 0);
-	READY	:in std_logic;		--pin34
+component sasisd
+port(
+	cs		:in std_logic;
+	addr	:in std_logic_vector(1 downto 0);
+	rd		:in std_logic;
+	wr		:in std_logic;
+	wdat	:in std_logic_vector(7 downto 0);
+	rdat	:out std_logic_vector(7 downto 0);
+	doe		:out std_logic;
+	int		:out std_logic;
+	iack	:in std_logic;
+	drq		:out std_logic;
+	dack	:in std_logic;
 	
-	int0	:in integer range 0 to maxbwidth;
-	int1	:in integer range 0 to maxbwidth;
-	int2	:in integer range 0 to maxbwidth;
-	int3	:in integer range 0 to maxbwidth;
+	SCLK	:out std_logic;
+	SDI		:in std_logic;
+	SDO		:out std_logic;
+	SD_CS	:out std_logic;
+
+	BUSY	:out std_logic;
 	
-	td0		:in std_logic;
-	td1		:in std_logic;
-	td2		:in std_logic;
-	td3		:in std_logic;
-	
-	hmssft	:in std_logic;		--0.5msec
-	
-	busy	:out std_logic;
-	mfm		:out std_logic;
-	
-	ismode	:in std_logic	:='1';
-	
-	sclk	:in std_logic;
-	sys_ce  :in std_logic := '1';
-	fclk	:in std_logic;
-	fd_ce   :in std_logic := '1';
+	sdsft	:in std_logic;
+	clk		:in std_logic;
 	rstn	:in std_logic
 );
 end component;
-
-component FDtiming
-generic(
-	sysclk	:integer	:=21477		--in kHz
-);
-port(
-	drv0sel		:in std_logic;		--0:300rpm 1:360rpm
-	drv1sel		:in std_logic;
-	drv0sele	:in std_logic;		--1:speed selectable
-	drv1sele	:in std_logic;
-
-	drv0hd		:in std_logic;
-	drv0hdi		:in std_logic;		--IBM 1.44MB format
-	drv1hd		:in std_logic;
-	drv1hdi		:in std_logic;		--IBM 1.44MB format
-
-	drv0hds		:out std_logic;
-	drv1hds		:out std_logic;
-
-	drv0int		:out integer range 0 to (BR_300_D*sysclk/1000000);
-	drv1int		:out integer range 0 to (BR_300_D*sysclk/1000000);
-
-	hmssft		:out std_logic;
-
-	clk			:in std_logic;
-	ce          :in std_logic := '1';
-	rstn		:in std_logic
-);
-end component;
-
-component dskchk2d
-generic(
-	sysclk	:integer	:=20000;	--system clock(kHz)	20000
-	chkint	:integer	:=300;		--check interval(msec)
-	signwait:integer	:=1;		--signal wait length(usec)
-	datwait	:integer	:=10;		--data wait length(usec)
-	motordly:integer	:=500		--motor rotate delay(msec)	
-);
-port(
-	FDC_USELn	:in std_logic_vector(1 downto 0);
-	FDC_BUSY	:in std_logic;
-	FDC_MOTORn	:in std_logic_vector(1 downto 0);
-	FDC_DIRn	:in std_logic;
-	FDC_STEPn	:in std_logic;
-	FDC_READYn	:out std_logic;
-	FDC_WAIT	:out std_logic;
-
-	FDD_USELn	:out std_logic_vector(1 downto 0);
-	FDD_MOTORn	:out std_logic_vector(1 downto 0);
-	FDD_DATAn	:in std_logic;
-	FDD_INDEXn	:in std_logic;
-	FDD_DSKCHGn	:in std_logic;
-	FDD_DIRn	:out std_logic;
-	FDD_STEPn	:out std_logic;
-
-	driveen		:in std_logic_vector(1 downto 0)	:=(others=>'1');
-	f_eject		:in std_logic_vector(1 downto 0)	:=(others=>'0');
-
-	indisk		:out std_logic_vector(1 downto 0);
-
-	hmssft		:in std_logic;
-
-	clk			:in std_logic;
-	ce          :in std_logic := '1';
-	rstn		:in std_logic
-);	
-end component;	
 
 component sasiif
 port(
@@ -1399,16 +1139,16 @@ port(
 	RST		:out std_logic;
 	
 	clk		:in std_logic;
-	ce      :in std_logic := '1';
 	rstn	:in std_logic
 );
 end component;
 
-component diskemu
+component diskemu_misterFDC
 generic(
-	fclkfreq		:integer	:=10000;
 	sclkfreq		:integer	:=10000;
-	fdwait	:integer	:=10
+	fdc_TCtout		:integer	:=100;
+	fdc_wtrack		:integer	:=7;
+	fdc_wsect	:integer	:=5
 );
 port(
 
@@ -1425,42 +1165,37 @@ port(
 	sasi_rst	:in std_logic						:='0';
 
 --FDD
-	fdc_useln	:in std_logic_vector(1 downto 0)	:=(others=>'1');
-	fdc_motorn	:in std_logic_vector(1 downto 0)	:=(others=>'1');
-	fdc_readyn	:out std_logic;
-	fdc_wrenn	:in std_logic						:='1';
-	fdc_wrbitn	:in std_logic						:='1';
-	fdc_rdbitn	:out std_logic;
-	fdc_stepn	:in std_logic						:='1';
-	fdc_sdirn	:in std_logic						:='1';
-	fdc_track0n	:out std_logic;
-	fdc_indexn	:out std_logic;
-	fdc_siden	:in std_logic						:='1';
-	fdc_wprotn	:out std_logic;
-	fdc_eject	:in std_logic_vector(1 downto 0)	:=(others=>'0');
-	fdc_indisk	:out std_logic_vector(1 downto 0)	:=(others=>'0');
-	fdc_trackwid:in std_logic						:='1';	--1:2HD/2DD 0:2D
-	fdc_dencity	:in std_logic						:='1';	--1:2HD 0:2DD/2D
-	fdc_rpm		:in std_logic						:='0';	--1:360rpm 0:300rpm
-	fdc_mfm		:in std_logic						:='1';
+	fdc_tracks	:in std_logic_vector(fdc_wtrack-1 downto 0);
+	fdc_sects	:in std_logic_vector(fdc_wsect-1 downto 0);
+	
+	fdc_RDn		:in std_logic;
+	fdc_WRn		:in std_logic;
+	fdc_CSn		:in std_logic;
+	fdc_A0		:in std_logic;
+	fdc_WDAT	:in std_logic_vector(7 downto 0);
+	fdc_RDAT	:out std_logic_vector(7 downto 0);
+	fdc_DATOE	:out std_logic;
+	fdc_DACKn	:in std_logic;
+	fdc_DRQ		:out std_logic;
+	fdc_TC		:in std_logic;
+	fdc_INTn	:out std_logic;
+	fdc_WAITIN	:in std_logic	:='0';
+	
+	fdc_indisk	:out std_logic_vector(1 downto 0);
+	fdc_usel		:out std_logic_vector(1 downto 0);
+	fdc_mfm		:out std_logic;
+	fdc_sectsize:out std_logic_vector(1 downto 0);
+	fdc_ready	:in std_logic;
+	fdc_hmssft	:in std_logic;
+	fdc_bitsft	:in std_logic;
+	fdc_fmterr	:in std_logic;
+	fdc_eject	:in std_logic_Vector(1 downto 0);
+	fdc_seekwait:in std_logic;
+	fdc_txwait	:in std_logic;
+	fdc_ismode	:in std_logic	:='1';
 
---FD emulator
-	fde_tracklen:out std_logic_vector(13 downto 0);
-	fde_ramaddr	:out std_logic_vector(22 downto 0);
-	fde_ramrdat	:in std_logic_vector(15 downto 0);
-	fde_ramwdat	:out std_logic_vector(15 downto 0);
-	fde_ramwr	:out std_logic;
-	fde_ramwait	:in std_logic;
-	fec_ramaddrh :out std_logic_vector(14 downto 0);
-	fec_ramaddrl :in std_logic_vector(7 downto 0);
-	fec_ramwe	:in std_logic;
-	fec_ramrdat	:out std_logic_vector(15 downto 0);
-	fec_ramwdat	:in std_logic_vector(15 downto 0);
-	fec_ramrd	:out std_logic;
-	fec_ramwr	:out std_logic;
-	fec_rambusy	:in std_logic;
-
-	fec_fdsync	:in std_logic_Vector(1 downto 0);
+	fdc_rxN		:in std_logic_Vector(7 downto 0);
+	
 --SRAM
 	sram_cs		:in std_logic						:='0';
 	sram_addr	:in std_logic_vector(12 downto 0)	:=(others=>'0');
@@ -1469,7 +1204,7 @@ port(
 	sram_rd		:in std_logic						:='0';
 	sram_wr		:in std_logic_vector(1 downto 0)	:="00";
 	sram_wp		:in std_logic						:='0';
-
+	
 	sram_ld		:in std_logic;
 	sram_st		:in std_logic;
 
@@ -1487,17 +1222,13 @@ port(
 	mist_buffdout	:in std_logic_vector(7 downto 0);
 	mist_buffdin	:out std_logic_vector(7 downto 0);
 	mist_buffwr		:in std_logic;
-
+	
 --common
 	initdone	:out std_logic;
 	busy		:out std_logic;
-	fclk		:in std_logic;
-	fd_ce       :in std_logic := '1';
 	sclk		:in std_logic;
-	sys_ce      :in std_logic := '1';
-	rclk		:in std_logic;
-	ram_ce      :in std_logic := '1';
-	rstn		:in std_logic
+	prstn		:in std_logic;
+	srstn		:in std_logic
 );
 end component;
 
@@ -1508,12 +1239,13 @@ generic(
 );
 port(
 	addr	:in std_logic_vector(awidth-1 downto 0);
-	ce      :in std_logic := '1';
+	ce		:in std_logic;
 	wr		:in std_logic;
 	din		:in std_logic_vector(dwidth-1 downto 0);
 	
 	myaddr	:in std_logic_vector(awidth-1 downto 0);
 	pout	:out std_logic_vector(dwidth-1 downto 0);
+	
 	clk		:in std_logic;
 	rstn	:in std_logic
 );
@@ -1522,6 +1254,7 @@ end component;
 component nvram
 port(
 	addr	:in std_logic_vector(12 downto 0);
+	ce		:in std_logic;
 	rd		:in std_logic;
 	wr		:in std_logic_vector(1 downto 0);
 	wdat	:in std_logic_vector(15 downto 0);
@@ -1536,160 +1269,9 @@ port(
 	
 	I2Csft	:in std_logic;
 	clk		:in std_logic;
-	ce      :in std_logic := '1';
 	rstn	:in std_logic
 );
 end component;
-
---component vidcont
---generic(
---	arange	:integer	:=22
---	);
---port(
---	t_base	:in std_logic_vector(arange-1 downto 0);
---	g_base	:in std_logic_vector(arange-1 downto 0);
---
---	g00_addr	:out std_logic_vector(arange-1 downto 0);
---	g00_rd	:out std_logic;
---	g00_rdat	:in std_logic_vector(15 downto 0);
---
---	g01_addr	:out std_logic_vector(arange-1 downto 0);
---	g01_rd	:out std_logic;
---	g01_rdat	:in std_logic_vector(15 downto 0);
---
---	g02_addr	:out std_logic_vector(arange-1 downto 0);
---	g02_rd	:out std_logic;
---	g02_rdat	:in std_logic_vector(15 downto 0);
---
---	g03_addr	:out std_logic_vector(arange-1 downto 0);
---	g03_rd	:out std_logic;
---	g03_rdat	:in std_logic_vector(15 downto 0);
---
---	g10_addr	:out std_logic_vector(arange-1 downto 0);
---	g10_rd	:out std_logic;
---	g10_rdat	:in std_logic_vector(15 downto 0);
---
---	g11_addr	:out std_logic_vector(arange-1 downto 0);
---	g11_rd	:out std_logic;
---	g11_rdat	:in std_logic_vector(15 downto 0);
---
---	g12_addr	:out std_logic_vector(arange-1 downto 0);
---	g12_rd	:out std_logic;
---	g12_rdat	:in std_logic_vector(15 downto 0);
---
---	g13_addr	:out std_logic_vector(arange-1 downto 0);
---	g13_rd	:out std_logic;
---	g13_rdat	:in std_logic_vector(15 downto 0);
---
---	t0_addr	:out std_logic_vector(arange-3 downto 0);
---	t0_rd		:out std_logic;
---	t0_rdat0	:in std_logic_vector(15 downto 0);
---	t0_rdat1	:in std_logic_vector(15 downto 0);
---	t0_rdat2	:in std_logic_vector(15 downto 0);
---	t0_rdat3	:in std_logic_vector(15 downto 0);
---	
---	t1_addr	:out std_logic_vector(arange-3 downto 0);
---	t1_rd		:out std_logic;
---	t1_rdat0	:in std_logic_vector(15 downto 0);
---	t1_rdat1	:in std_logic_vector(15 downto 0);
---	t1_rdat2	:in std_logic_vector(15 downto 0);
---	t1_rdat3	:in std_logic_vector(15 downto 0);
---	
---	g0_caddr	:out std_logic_vector(arange-1 downto 7);
---	g0_clear	:out std_logic;
---	
---	g1_caddr	:out std_logic_vector(arange-1 downto 7);
---	g1_clear	:out std_logic;
---
---	g2_caddr	:out std_logic_vector(arange-1 downto 7);
---	g2_clear	:out std_logic;
---
---	g3_caddr	:out std_logic_vector(arange-1 downto 7);
---	g3_clear	:out std_logic;
---
---	t_hoffset	:in std_logic_vector(9 downto 0);
---	t_voffset	:in std_logic_vector(9 downto 0);
---	
---	g0_hoffset	:in std_logic_vector(9 downto 0);
---	g0_voffset	:in std_logic_vector(9 downto 0);
---	g1_hoffset	:in std_logic_vector(8 downto 0);
---	g1_voffset	:in std_logic_vector(8 downto 0);
---	g2_hoffset	:in std_logic_vector(8 downto 0);
---	g2_voffset	:in std_logic_vector(8 downto 0);
---	g3_hoffset	:in std_logic_vector(8 downto 0);
---	g3_voffset	:in std_logic_vector(8 downto 0);
---
---	gmode	:in std_logic_vector(1 downto 0);		--00:4bit color 01:8bit color 11/10:16bit color
---	memres	:in std_logic;							--0:512x512 1:1024x1024
---	hres	:in std_logic_vector(1 downto 0);		--00:256 01:512 10/11:768
---	vres	:in std_logic;							--0:256 1:512
---	txten	:in std_logic;
---	grpen	:in std_logic;
---	spren	:in std_logic;
---	graphen	:in std_logic_vector(4 downto 0);
---	grpri	:in std_logic_vector(7 downto 0);
---	pri_sp	:in std_logic_vector(1 downto 0);
---	pri_tx	:in std_logic_vector(1 downto 0);
---	pri_gr	:in std_logic_vector(1 downto 0);
---	exon		:in std_logic;
---	hp			:in std_logic;
---	bp			:in std_logic;
---	gg			:in std_logic;
---	gt			:in std_logic;
---	ah			:in std_logic;
---	ys          :in std_logic;
---	vht         :in std_logic;
---	lsel        :in std_logic;
---
---	lbaddr	:out std_logic_vector(9 downto 0);
---	lbwdat	:out std_logic_vector(15 downto 0);
---	lbwr	:out std_logic;
---	
---	hcomp	:in std_logic;
---	vpstart	:in std_logic;
---	hfreq	:in std_logic;
---	htotal	:in std_logic_vector(7 downto 0);
---	hvbgn	:in std_logic_vector(7 downto 0);
---	hvend	:in std_logic_vector(7 downto 0);
---	vtotal	:in std_logic_vector(9 downto 0);
---	vvbgn	:in std_logic_vector(9 downto 0);
---	vvend	:in std_logic_vector(9 downto 0);
---	
---	addrx	:out std_logic_vector(9 downto 0);
---	addry	:out std_logic_vector(9 downto 0);
---	sprite_in:in std_logic_vector(7 downto 0);
---	
---	tpalno	:out std_logic_vector(7 downto 0);
---	tpalin	:in std_logic_vector(15 downto 0);
---	tpal0in	:in std_logic_vector(15 downto 0);
---	gpal0in	:in std_logic_vector(15 downto 0);
---	
---	spalno	:out std_logic_vector(7 downto 0);
---	spalin	:in std_logic_vector(15 downto 0);
---
---	gpal0no	:out std_logic_vector(7 downto 0);
---	gpal1no	:out std_logic_vector(7 downto 0);
---	gpalin	:in std_logic_vector(15 downto 0);
---	
---	vvideoen	:out std_logic;
---	rintline:in std_logic_vector(9 downto 0);
---	rint	:out std_logic;
---
---	vlineno	:out std_logic_vector(9 downto 0);
---	
---	gclrbgn	:in std_logic;
---	gclrend	:in std_logic;
---	gclrpage:in std_logic_vector(3 downto 0);
---	gclrbusy:out std_logic;
---	
---	hblank  :in std_logic;
---	vblank  :in std_logic;
---	
---	vidclk		:in std_logic;
---	vid_ce      :in std_logic := '1';
---	rstn	:in std_logic
---);
---end component;
 
 component vidcont
 generic(
@@ -1848,7 +1430,7 @@ port(
 	bg0voff	:in std_logic_vector(9 downto 0);
 	bg1hoff	:in std_logic_vector(9 downto 0);
 	bg1voff	:in std_logic_vector(9 downto 0);
-
+	
 	sprno	:out std_logic_vector(6 downto 0);
 	sprxpos	:in std_logic_vector(9 downto 0);
 	sprypos	:in std_logic_vector(9 downto 0);
@@ -1857,25 +1439,24 @@ port(
 	sprCOLOR:in std_logic_vector(3 downto 0);
 	sprPAT	:in std_logic_vector(7 downto 0);
 	sprPRI	:in std_logic_vector(1 downto 0);
-
+	
 	bgaddr	:out std_logic_vector(12 downto 0);
 	bgVR	:in std_logic;
 	bgHR	:in std_logic;
 	bgCOLOR	:in std_logic_vector(3 downto 0);
 	bgPAT	:in std_logic_vector(7 downto 0);
-
+	
 	patno	:out std_logic_vector(9 downto 0);
 	dotx	:out std_logic_vector(2 downto 0);
 	doty	:out std_logic_vector(2 downto 0);
 	dotin	:in std_logic_vector(3 downto 0);
-
+	
 	rdaddr	:in std_logic_vector(8 downto 0);
 	dotout	:out std_logic_vector(7 downto 0);
-
-	debugsel	:in std_logic_vector(1 downto 0)	:="11";
-
+	
+	debugsel	:in std_logic_vector(1 downto 0);
+	
 	clk		:in std_logic;
-	ce      :in std_logic := '1';
 	rstn	:in std_logic
 );
 end component;
@@ -1961,22 +1542,20 @@ port(
 	wrdat	:in std_logic_Vector(15 downto 0);
 	rddat	:out std_logic_vector(15 downto 0);
 	datoe	:out std_logic;
-
+	
 	patno	:in std_logic_vector(9 downto 0);
 	dotx	:in std_logic_vector(2 downto 0);
 	doty	:in std_logic_vector(2 downto 0);
 	dot		:out std_logic_vector(3 downto 0);
-
+	
 	bg_addr	:in std_logic_vector(12 downto 0);
 	bg_VR	:out std_logic;
 	bg_HR	:out std_logic;
 	bg_COLOR:out std_logic_vector(3 downto 0);
 	bg_PAT	:out std_logic_vector(7 downto 0);
-
+	
 	sclk	:in std_logic;
-	sys_ce  :in std_logic := '1';
 	vclk	:in std_logic;
-	vid_ce  :in std_logic := '1';
 	rstn	:in std_logic
 );
 end component;
@@ -2015,9 +1594,7 @@ port(
 	HRES	:out std_logic_vector(1 downto 0);
 	
 	sclk	:in std_logic;
-	sys_ce  :in std_logic := '1';
 	vclk	:in std_logic;
-	vid_ce  :in std_logic := '1';
 	rstn	:in std_logic
 );
 end component;
@@ -2110,14 +1687,13 @@ port(
 	int		:out std_logic;
 	ivect	:out std_logic_vector(7 downto 0);
 	iack	:in std_logic;
-
+	
 	mclkin	:in std_logic;
 	mclkout	:out std_logic;
 	mdatin	:in std_logic;
 	mdatout	:out std_logic;
 	
 	clk		:in std_logic;
-	ce      :in std_logic := '1';
 	rstn	:in std_logic
 );
 end component;
@@ -2158,7 +1734,6 @@ port(
 	prn_int		:in std_logic;
 	
 	clk		:in std_logic;
-	ce      :in std_logic := '1';
 	rstn	:in std_logic
 );
 end component;
@@ -2176,12 +1751,11 @@ port(
 	wrote	:out std_logic;
 	
 	clk		:in std_logic;
-	ce      :in std_logic := '1';
 	rstn	:in std_logic
 );
 end component;
 
-component rp5c15
+component rp5c15_MiSTer
 generic(
 	clkfreq	:integer	:=21477270;
 	YEAROFF	:std_logic_vector(7 downto 0)	:=x"00"
@@ -2191,15 +1765,14 @@ port(
 	wdat	:in std_logic_vector(3 downto 0);
 	rdat	:out std_logic_vector(3 downto 0);
 	wr		:in std_logic;
-
+	
 	clkout	:out std_logic;
 	alarm	:out std_logic;
-
+	
 	RTCIN	:in std_logic_vector(64 downto 0);
-
+	
 	clk		:in std_logic;
-	ce      :in std_logic := '1';
-	rstn		:in std_logic
+	rstn	:in std_logic
 );
 end component;
 
@@ -2227,7 +1800,6 @@ port(
 	PCLoe	:out std_logic;
 	
 	clk		:in std_logic;
-	ce      :in std_logic := '1';
 	rstn	:in std_logic
 );
 end component;
@@ -2254,6 +1826,7 @@ port(
 --	monout	:out std_logic_vector(15 downto 0);
 
 	chenable:in std_logic_vector(7 downto 0)	:=(others=>'1');
+	tonemode:in std_logic_vector(1 downto 0)	:="00";
 
 	fmclk	:in std_logic;
 	pclk	:in std_logic;
@@ -2262,29 +1835,30 @@ port(
 end component;
 
 component jt51
-port(
-	rst      :in  std_logic;
-	clk      :in  std_logic;
-	cen      :in  std_logic;
-	cen_p1   :in  std_logic;
-	cs_n     :in  std_logic;
-	wr_n     :in  std_logic;
-	a0       :in  std_logic;
-	din      :in  std_logic_vector(7 downto 0);
-	dout     :out std_logic_vector(7 downto 0);
-	ct1      :out std_logic;
-	ct2      :out std_logic;
-	irq_n    :out std_logic;
-	sample   :out std_logic;
-	left     :out std_logic_vector(15 downto 0);
-	right    :out std_logic_vector(15 downto 0);
-	xleft    :out std_logic_vector(15 downto 0);
-	xright   :out std_logic_vector(15 downto 0);
-	dacleft  :out std_logic_vector(15 downto 0);
-	dacright :out std_logic_vector(15 downto 0)
-);
+    Port (
+        rst           : in  STD_LOGIC;             -- reset
+        clk           : in  STD_LOGIC;             -- main clock
+        cen           : in  STD_LOGIC;             -- clock enable
+        cen_p1        : in  STD_LOGIC;             -- clock enable at half the speed
+        cs_n          : in  STD_LOGIC;             -- chip select
+        wr_n          : in  STD_LOGIC;             -- write
+        a0            : in  STD_LOGIC;             -- address bit 0
+        din           : in  STD_LOGIC_VECTOR(7 downto 0); -- data in
+        dout          : out STD_LOGIC_VECTOR(7 downto 0); -- data out
+        -- peripheral control
+        ct1           : out STD_LOGIC;             -- control timer 1
+        ct2           : out STD_LOGIC;             -- control timer 2
+        irq_n         : out STD_LOGIC;             -- interrupt request
+        -- Low resolution output
+        sample        : out STD_LOGIC;             -- marks new output sample
+        left          : out STD_LOGIC_VECTOR(15 downto 0); -- left audio output
+        right         : out STD_LOGIC_VECTOR(15 downto 0); -- right audio output
+        -- Full resolution output
+        xleft         : out STD_LOGIC_VECTOR(15 downto 0); -- left full resolution output
+        xright        : out STD_LOGIC_VECTOR(15 downto 0)  -- right full resolution output
+    );
 end component;
-
+	 
 component e6258
 port(
 	addr	:in std_logic;
@@ -2292,33 +1866,30 @@ port(
 	datout	:out std_logic_vector(7 downto 0);
 	datwr	:in std_logic;
 	drq		:out std_logic;
-
+	
 	clkdiv	:in std_logic_vector(1 downto 0);
 	sft		:in std_logic;
-
+	
 	sndout	:out std_logic_vector(11 downto 0);
-
+	
 	sysclk	:in std_logic;
-	sys_ce  :in std_logic := '1';
-	sndclk		:in std_logic;
-	snd_ce  :in std_logic := '1';
+	sndclk	:in std_logic;
 	rstn	:in std_logic
 );
 end component;
 
 component deltasigmadac
-generic(
-	width	:integer	:=8
-);
-port(
-	data	:in	std_logic_vector(width-1 downto 0);
-	datum	:out std_logic;
-	
-	sft		:in std_logic;
-	clk		:in std_logic;
-	ce      :in std_logic := '1';
-	rstn	:in std_logic
-);
+	generic(
+		width	:integer	:=8
+	);
+	port(
+		data	:in	std_logic_vector(width-1 downto 0);
+		datum	:out std_logic;
+		
+		sft		:in std_logic;
+		clk		:in std_logic;
+		rstn	:in std_logic
+	);
 end component;
 
 component addsat
@@ -2349,9 +1920,7 @@ port(
 	palout	:out std_logic_vector(15 downto 0);
 	
 	sclk	:in std_logic;
-	sys_ce  :in std_logic := '1';
 	vclk	:in std_logic;
-	vid_ce  :in std_logic := '1';
 	rstn	:in std_logic
 );
 end component;
@@ -2367,15 +1936,13 @@ port(
 	wr		:in std_logic_vector(1 downto 0);
 	
 	gmode	:in std_logic;
-	skel	:in std_logic	:='0';
+	skel	:in std_logic;
 	palnoh	:in std_logic_vector(7 downto 0);
 	palnol	:in std_logic_vector(7 downto 0);
 	palout	:out std_logic_vector(15 downto 0);
 	
 	sclk	:in std_logic;
-	sys_ce  :in std_logic := '1';
 	vclk	:in std_logic;
-	vid_ce  :in std_logic := '1';
 	rstn	:in std_logic
 );
 end component;
@@ -2392,10 +1959,8 @@ port(
 	pint	:out std_logic;
 	
 	sclk	:in std_logic;
-	sys_ce  :in std_logic := '1';
 	srstn	:in std_logic;
 	pclk	:in std_logic;
-	mpu_ce  :in std_logic := '1';
 	prstn	:in std_logic
 );
 end component;
@@ -2416,7 +1981,6 @@ port(
 	contrast:out std_logic_vector(3+extwid downto 0);
 	
 	sclk	:in std_logic;
-	sys_ce  :in std_logic := '1';
 	srstn	:in std_logic
 );
 end component;
@@ -2446,8 +2010,24 @@ port(
 	GPIN	:in std_logic_vector(7 downto 0);
 	GPOE	:out std_logic_vector(7 downto 0);
 	
+	gcountsft	:in std_logic;
+	ccountsft	:in std_logic;
+	mcountsft	:in std_logic;
+	
 	clk	:in std_logic;
-	ce  :in std_logic := '1';
+	rstn	:in std_logic
+);
+end component;
+
+component  sftgen
+generic(
+	maxlen	:integer	:=100
+);
+port(
+	len		:in integer range 0 to maxlen;
+	sft		:out std_logic;
+	
+	clk		:in std_logic;
 	rstn	:in std_logic
 );
 end component;
@@ -2463,7 +2043,20 @@ port(
 	SFT		:out std_logic;
 
 	clk		:in std_logic;
-	ce      :in std_logic := '1';
+	rstn	:in std_logic
+);
+end component;
+
+component sftnpn
+generic(
+	denom	:integer	:=5
+);
+port(
+	numer	:in std_logic_vector(denom-1 downto 0);
+	sftin	:in std_logic;
+	sftout	:out std_logic;
+	
+	clk		:in std_logic;
 	rstn	:in std_logic
 );
 end component;
@@ -2474,32 +2067,30 @@ port(
 	pcmsft	:out std_logic;
 	
 	clk		:in std_logic;
-	ce      :in std_logic := '1';
 	rstn	:in std_logic
 );
 end component;
 
 component HEX2SEGn
-port(
-	HEX	:in std_logic_vector(3 downto 0);
-	DOT	:in std_logic;
-	SEG	:out std_logic_vector(7 downto 0)
-);
+	port(
+		HEX	:in std_logic_vector(3 downto 0);
+		DOT	:in std_logic;
+		SEG	:out std_logic_vector(7 downto 0)
+	);
 end component;
 
 component DIGIFILTER
-generic(
-	TIME	:integer	:=2;
-	DEF		:std_logic	:='0'
-);
-port(
-	D	:in std_logic;
-	Q	:out std_logic;
+	generic(
+		TIME	:integer	:=2;
+		DEF		:std_logic	:='0'
+	);
+	port(
+		D	:in std_logic;
+		Q	:out std_logic;
 
-	clk	:in std_logic;
-	ce  :in std_logic := '1';
-	rstn :in std_logic
-);
+		clk	:in std_logic;
+		rstn :in std_logic
+	);
 end component;
 
 component fontrom
@@ -2535,8 +2126,20 @@ port(
 	datout	:out std_logic_vector(datwidth-1 downto 0);
 	
 	clk		:in std_logic;
-	ce      :in std_logic := '1';
 	rstn		:in std_logic
+);
+end component;
+
+component delayer
+generic(
+	counts	:integer	:=5
+);
+port(
+	a		:in std_logic;
+	q		:out std_logic;
+	
+	clk		:in std_logic;
+	rstn	:in std_logic
 );
 end component;
 
@@ -2585,10 +2188,10 @@ end component;
 --end component;
 
 begin
-	-- pllrst<=not pwr_rstn;
+	pllrst<=not pwr_rstn;
 --	pMemClk<=not ramclk;
 
-	--sr	:sftclk    generic map(100000000,1,1) port map("1",srst,sysclk,sys_ce,rstn);
+	sr	:sftclk    generic map(100000000,1,1) port map("1",srst,sysclk,rstn);
 
 	mem_rstn<=	plllock;
 
@@ -2608,88 +2211,28 @@ begin
 		pint	=>pwrsw,
 		
 		sclk	=>sysclk,
-		sys_ce  =>sys_ce,
 		srstn	=>srstn,
 		pclk	=>sysclk,
-		mpu_ce  =>mpu_cep,
 		prstn	=>rstn
 	);
 	
-	MPU : fx68k port map(
-		clk      => sysclk,
-		HALTn    => '1',
-		extReset => not srstn,
-		pwrUp    => not srstn,
-		enPhi1   => not dma_bconte and mpu_cep,
-		enPhi2   => not dma_bconte and mpu_cen,
-		eRWn     => i_rwn,
-		ASn      => i_ASn,
-		LDSn     => mpu_ldsn,
-		UDSn     => mpu_udsn,
-		FC0      => mpu_fc(0),
-		FC1      => mpu_fc(1),
-		FC2      => mpu_fc(2),
-		DTACKn   => mpu_dtack,
-		VPAn     => not (mpu_fc(0) and mpu_fc(1) and mpu_fc(2)),
-		BERRn    => '1',
-		BRn      => '1',
-		BGACKn   => '1',
-		IPL0n    => mpu_ipl(0),
-		IPL1n    => mpu_ipl(1),
-		IPL2n    => mpu_ipl(2),
-		iEdb     => dbus,
-		oEdb     => mpu_od,
-		eab      => mpu_addr(23 downto 1)
+	mpu_clke<=(not dma_bconte);
+	MPU	:TG68 port map(
+		clk           =>sysclk,
+		reset         =>srstn,
+        clkena_in     =>mpu_clke,
+        data_in       =>dbus,
+        IPL           =>mpu_ipl,
+        dtack         =>mpu_dtack,
+        addr          =>mpu_addr,
+        data_out      =>mpu_od,
+        as            =>mpu_as,
+        uds           =>mpu_udsn,
+        lds           =>mpu_ldsn,
+        rw            =>mpu_rwn,
+        drive_data    =>mpu_oe
 	);
 	
-	-- simulate odd byte access of TG68. Real CPU has no A0!
-	mpu_addr(0) <= not mpu_ldsn and mpu_udsn;
-
-	-- simulate write access of TG68 (Write, byte select, and address select activated at the same time)
-	mpu_rwn <= i_ASn or i_rwn or (mpu_ldsn and mpu_udsn);
-	mpu_as  <= i_ASn when i_rwn = '1' else mpu_rwn;
-	mpu_oe  <= not i_rwn;
-
-	-- CPU_W : cpu_wrapper
-	-- port map(
-	-- 	clk           =>mpuclk,
-	-- 	clk10m        =>sysclk,
-	-- 	buserr        =>buserr,
-	-- 	phi1_ce       =>mpu_ce,
-	-- 	phi2_ce       =>not mpu_ce,
-	-- 	cpu_select    =>CPUS,
-	-- 	reset_n       =>srstn,
-	-- 	din           =>dbus,
-	-- 	dTACK_n       =>mpu_dtack,
-	-- 	dma_active_n  =>dma_bconte,
-	-- 	IPL           =>mpu_ipl,
-	-- 	dout          =>mpu_od,
-	-- 	FC            =>open,
-	-- 	rw_n          =>mpu_rwn,
-	-- 	address       =>mpu_addr(23 downto 0),
-	-- 	AS_n          =>mpu_as,
-	-- 	UDS_n         =>mpu_udsn,
-	-- 	LDS_n         =>mpu_ldsn,
-	-- 	OE            =>mpu_oe
-	-- );
-	
-	--MPU : TG68 port map(
-	--	clk           =>sysclk,
-	--	reset         =>srstn,
-	--	clkena_in     =>(not dma_bconte) and sys_ce,
-	--	data_in       =>dbus,
-	--	IPL           =>mpu_ipl,
-	--	dtack         =>mpu_dtack,
-	--	addr(23 downto 0)  =>mpu_addr,
-	--	addr(31 downto 24) =>open,
-	--	data_out      =>mpu_od,
-	--	as            =>mpu_as,
-	--	uds           =>mpu_udsn,
-	--	lds           =>mpu_ldsn,
-	--	rw            =>mpu_rwn,
-	--	drive_data    =>mpu_oe
-	--);
-
 --	intcount	:intlen generic map(12)port map(
 --		IPL	=>mpu_ipl,
 --		ack	=>mpu_dtack,
@@ -2719,8 +2262,8 @@ begin
 		
 		int4	=>INT4,
 		vect4	=>IVECT4,
-		--iack4	=>IACK4,
-		e_ln4	=>'1',
+		iack4	=>IACK4,
+		e_ln4	=>'0',
 		
 		int3	=>INT3,
 		vect3	=>IVECT3,
@@ -2729,7 +2272,7 @@ begin
 		
 		int2	=>INT2,
 		vect2	=>IVECT2,
-		--iack2	=>IACK2,
+		iack2	=>IACK2,
 		e_ln2	=>'1',
 		
 		int1	=>INT1,
@@ -2739,13 +2282,12 @@ begin
 		ivack1	=>IOU_ivack,
 
 		IPL		=>mpu_ipl,
-		addrin	=>mpu_addr,
+		addrin	=>mpu_addr(23 downto 0),
 		addrout	=>int_addr,
 		rw		=>mpu_rwn,
-        dtack	=>mpu_dtack,
+		dtack	=>mpu_dtack,
 		
 		clk		=>sysclk,
-		ce      =>sys_ce,
 		rstn	=>srstn
 	);
 	
@@ -2784,27 +2326,29 @@ begin
 		doneo2	=>open,
 
 		drq3	=>pcm_drq,
+--		drq3	=>pcm_drq and ((not pDip(2)) or (not DEBUG(DBIT_ADPCM_ONOFF))),
 		dack3	=>open,
 		pcli3	=>pcm_drq,
 		pclo3	=>open,
 		doneo3	=>open,
 		
-		--d_rd	=>dma_drd,
-		--d_wr	=>dma_dwr,
+		d_rd	=>dma_drd,
+		d_wr	=>dma_dwr,
 		
 		donei	=>'0',
 
 		dtc		=>open,
 		
-		int		=>INT3,
+		int		=>dma_int,
 		ivect	=>IVECT3,
 		iack	=>IACK3,
 		
 		clk		=>sysclk,
-		ce      =>sys_ce,
 		rstn	=>srstn
 	);
 
+	i3delay	:delayer generic map(3)port map(dma_int,INT3,sysclk,srstn);
+	
 --	INT3<='0';
 
 	abus<=	dma_addr when dma_bconte='1' else int_addr;
@@ -2839,17 +2383,17 @@ begin
 	b_ldsn<=dma_ldsn when dma_bconte='1' else mpu_ldsn;
 	b_rwn<=dma_rwn when dma_bconte='1' else mpu_rwn;
 	b_lds<=not b_ldsn;
-	--b_uds<=not b_udsn;
+	b_uds<=not b_udsn;
 	
 	iowait<=iowait_rcpy or iowait_sasi or iowait_opm;
-	-- process(sysclk, sys_ce)begin
-	-- 	if(sysclk' event and sysclk='1' and sys_ce = '1') then
-	-- 		dwait<=pDip(3);
-	-- 	end if;
-	-- end process;
+	process(sysclk)begin
+		if(sysclk' event and sysclk='1')then
+			dwait<=pDip(3);
+		end if;
+	end process;
 			
-	--mpu_dtack<='1' when (dwait='1' and DEBUG(DBIT_PAUSE_ONOFF)='1') else b_ack when dma_bconte='0' else '1';
-	mpu_dtack<=b_ack when dma_bconte='0' else '1';
+	mpu_dtack<='1' when (dwait='1' and DEBUG(DBIT_PAUSE_ONOFF)='1') else b_ack when dma_bconte='0' else '1';
+--	mpu_dtack<=b_ack when dma_bconte='0' else '1';
 	mmap_min<='0';
 	MMP	:X68mmapCV port map(
 		m_addr	=>abus(23 downto 0),
@@ -2865,8 +2409,8 @@ begin
 		b_rd	=>b_rd,
 		b_wr	=>b_wr,
 		
-		--buserr	=>buserr,
-		--iackbe	=>iackbe,
+		buserr	=>buserr,
+		iackbe	=>iackbe,
 		
 		MEN		=>vr_MEN,
 		SA		=>vr_SA,
@@ -2898,7 +2442,6 @@ begin
 		
 		min			=>mmap_min,
 		sclk		=>sysclk,
-		sys_ce      =>sys_ce,
 		rstn		=>srstn
 );
 	b_rdn<=not b_rd;
@@ -2946,42 +2489,42 @@ begin
 		g00_addr	=>g00_addr,
 		g00_rd		=>g00_rd,
 		g00_rdat	=>g00_rdat,
-		--g00_ack		=>g00_ack,
+		g00_ack		=>g00_ack,
 
 		g01_addr	=>g01_addr,
 		g01_rd		=>g01_rd,
 		g01_rdat	=>g01_rdat,
-		--g01_ack		=>g01_ack,
+		g01_ack		=>g01_ack,
 
 		g02_addr	=>g02_addr,
 		g02_rd		=>g02_rd,
 		g02_rdat	=>g02_rdat,
-		--g02_ack		=>g02_ack,
+		g02_ack		=>g02_ack,
 
 		g03_addr	=>g03_addr,
 		g03_rd		=>g03_rd,
 		g03_rdat	=>g03_rdat,
-		--g03_ack		=>g03_ack,
+		g03_ack		=>g03_ack,
 
 		g10_addr	=>g10_addr,
 		g10_rd		=>g10_rd,
 		g10_rdat	=>g10_rdat,
-		--g10_ack		=>g10_ack,
+		g10_ack		=>g10_ack,
 
 		g11_addr	=>g11_addr,
 		g11_rd		=>g11_rd,
 		g11_rdat	=>g11_rdat,
-		--g11_ack		=>g11_ack,
+		g11_ack		=>g11_ack,
 
 		g12_addr	=>g12_addr,
 		g12_rd		=>g12_rd,
 		g12_rdat	=>g12_rdat,
-		--g12_ack		=>g12_ack,
+		g12_ack		=>g12_ack,
 
 		g13_addr	=>g13_addr,
 		g13_rd		=>g13_rd,
 		g13_rdat	=>g13_rdat,
-		--g13_ack		=>g13_ack,
+		g13_ack		=>g13_ack,
 
 		t0_addr		=>t0_addr,
 		t0_rd		=>t0_rd,
@@ -2989,7 +2532,7 @@ begin
 		t0_rdat1	=>t0_rdat1,
 		t0_rdat2	=>t0_rdat2,
 		t0_rdat3	=>t0_rdat3,
-		--t0_ack		=>t0_ack,
+		t0_ack		=>t0_ack,
 		
 		t1_addr		=>t1_addr,
 		t1_rd		=>t1_rd,
@@ -2997,7 +2540,7 @@ begin
 		t1_rdat1	=>t1_rdat1,
 		t1_rdat2	=>t1_rdat2,
 		t1_rdat3	=>t1_rdat3,
-		--t1_ack		=>t1_ack,
+		t1_ack		=>t1_ack,
 		
 		g0_caddr	=>g0_caddr,
 		g0_clear	=>g0_clear,
@@ -3011,20 +2554,20 @@ begin
 		g3_caddr	=>g3_caddr,
 		g3_clear	=>g3_clear,
 
-		fde_addr	=>'1' & dem_fderamaddr(22 downto 0),
-		fde_rdat	=>dem_fderamrdat,
-		fde_wdat	=>dem_fderamwdat,
-		fde_wr		=>dem_fderamwr,
-		fde_tlen	=>dem_fdetracklen,
+		fde_addr	=>(others=>'1'),
+		fde_rdat	=>open,
+		fde_wdat	=>(others=>'1'),
+		fde_wr		=>'0',
+		fde_tlen	=>(others=>'0'),
 		
-		fec_addr	=>dem_fecramaddrl,
-		fec_rdat	=>dem_fecramrdat,
-		fec_wdat	=>dem_fecramwdat,
-		fec_we	=>dem_fecramwe,
-		fec_addrh	=>'1' & dem_fecramaddrh(14 downto 0),
-		fec_rd		=>dem_fecramrd,
-		fec_wr		=>dem_fecramwr,
-		fec_busy	=>dem_fecrambusy,
+		fec_addr	=>open,
+		fec_rdat	=>open,
+		fec_wdat	=>(others=>'0'),
+		fec_we	=>open,
+		fec_addrh	=>(others=>'1'),
+		fec_rd		=>'0',
+		fec_wr		=>'0',
+		fec_busy	=>open,
 
 		initdone	=>ram_inidone,
 		sclk		=>sysclk,
@@ -3034,7 +2577,7 @@ begin
 		rstn		=>mem_rstn
 	);
 	
-	nvwpl	:bwlatch generic map(24,8) port map(abus(23 downto 0),b_lds and sys_ce,b_wr(0),dbus(7 downto 0),x"e8e00d",nvwp,sysclk,srstn);
+	nvwpl	:bwlatch generic map(24,8) port map(abus(23 downto 0),b_lds,b_wr(0),dbus(7 downto 0),x"e8e00d",nvwp,sysclk,srstn);
 	nv_ce<='1' when abus(23 downto 14)="1110110100" else '0';
 
 	CRTC	:CRTCX68TXT generic map(4) port map(
@@ -3065,8 +2608,8 @@ begin
 		HSYNC		=>vidHS,
 		VSYNC		=>vidVS,
 		
-		HMODE		=>  "11",
-		VMODE		=> '1',
+		HMODE		=>"11",
+		VMODE		=>'1',
 
 		VRTC		=>VID_VRTC,
 		HRTC		=>VID_HRTC,
@@ -3074,7 +2617,7 @@ begin
 
 		HCOMP		=>HCOMP,
 		VCOMP		=>open,
-		VPSTART	=>VPSTART,
+		VPSTART		=>VPSTART,
 		
 		dclk		=>dclk,
 		
@@ -3082,78 +2625,10 @@ begin
 		rstn		=>vid_rstn
 	);
 
-	out_HMODE  <= vr_HD;
-	out_VMODE  <= vr_VD;
-	out_hfreq  <= vr_hfreq;
-	out_htotal <= vr_htotal;
-	out_hsynl  <= vr_hsync;
-	out_hvbgn  <= vr_hvbgn;
-	out_hvend  <= vr_hvend;
-	out_vtotal <= vr_vtotal;
-	out_vsynl  <= vr_vsync;
-   out_vvbgn  <= vr_vvbgn;
-	out_vvend  <= vr_vvend;
-	out_rintl  <= vr_rintline;
-
---	CRTC	:mister_sync 
---	port map(
---		LRAMSEL     =>LRAMSEL,
---		LRAMADR     =>LVIDADR,
---		LRAMDAT     =>LVIDRD,
---
---		RFOUT       =>vidRF,
---		GFOUT       =>vidGF,
---		BFOUT       =>vidBF,
---		
---		HSYNC       =>vidHS,
---		VSYNC       =>vidVS,
---		
---		HMODE       =>vr_HD,
---		VMODE       =>vr_VD,
---	
---		hrl         =>vr_DC,
---		hfreq       =>vr_hfreq,
---		htotal      =>vr_htotal,
---		hsynl       =>vr_hsync,
---		hvbgn       =>vr_hvbgn,
---		hvend       =>vr_hvend,
---		vtotal      =>vr_vtotal,
---		vsynl       =>vr_vsync,
---		vvbgn       =>vr_vvbgn,
---		vvend       =>vr_vvend,
---		rintl       =>vr_rintline,
---		hadj        =>vr_hadj,
---		
---		out_HMODE   =>out_HMODE,
---		out_VMODE   =>out_VMODE,
---		out_hfreq   =>out_hfreq,
---		out_htotal  =>out_htotal,
---		--out_hsynl   =>out_hsynl,
---		out_hvbgn   =>out_hvbgn,
---		out_hvend   =>out_hvend,
---		out_vtotal  =>out_vtotal,
---		--out_vsynl   =>out_vsynl,
---		out_vvbgn   =>out_vvbgn,
---		out_vvend   =>out_vvend,
---		out_rintl   =>out_rintl,
---
---		VRTC        =>VID_VRTC,
---		HRTC        =>VID_HRTC,
---		VIDEN       =>vidEN,
---
---		HCOMP       =>HCOMP,
---		VCOMP       =>open,
---		VPSTART     =>VPSTART,
---		
---		pix_ce      =>dclk,
---		v60hz       =>vid_hz,
---		f1          =>pVideoF1,
---		
---		gclk        =>vidclk,
---		rstn        =>vid_rstn
---	);
-
-	vid_ce <= '1';
+pVideoHB <= VID_HRTC;
+pVideoVB <= VID_VRTC;
+	
+	
 	cont	:contcont generic map(context) port map(
 		addrin	=>abus,
 		wr		=>b_wr(0),
@@ -3166,7 +2641,6 @@ begin
 		contrast=>contval,
 
 		sclk	=>sysclk,
-		sys_ce  =>sys_ce,
 		srstn	=>vid_rstn
 	);
 	contvalm<=	contval;
@@ -3183,12 +2657,9 @@ begin
 	pVideoEN<=vidEN;
 	pVideoHS<=vidHS;
 	pVideoVS<=vidVS;
+
+
 	
-
-	pVideoHB<= VID_HRTC;
-	pVideoVB<= VID_VRTC;
-
-
 	LBUFWR0<=LBUFWR and LRAMSEL;
 	LBUFWR1<=LBUFWR and (not LRAMSEL);
 	VLBUF0	:VLINEBUF port map(
@@ -3199,7 +2670,7 @@ begin
 		data_b		=>(others=>'0'),
 		wren_a		=>LBUFWR0,
 		wren_b		=>'0',
-		--q_a			=>LBUFRD0,
+		q_a			=>LBUFRD0,
 		q_b			=>LVIDRD0
 	);
 	VLBUF1	:VLINEBUF port map(
@@ -3210,84 +2681,12 @@ begin
 		data_b		=>(others=>'0'),
 		wren_a		=>LBUFWR1,
 		wren_b		=>'0',
-		--q_a			=>LBUFRD1,
+		q_a			=>LBUFRD1,
 		q_b			=>LVIDRD1
 	);
-	--LBUFRD<=LBUFRD0 when LRAMSEL='0' else LBUFRD1;
+	LBUFRD<=LBUFRD0 when LRAMSEL='0' else LBUFRD1;
 	LVIDRD<=LVIDRD0 when LRAMSEL='1' else LVIDRD1;
 
---	vreg	:vcreg port map(
---		addr	=>abus(23 downto 0),
---		rdat	=>vr_rdat,
---		wdat	=>dbus,
---		rd		=>b_rd,
---		wr		=>b_wr,
---		doe		=>vr_doe,
---		
---		htotal		=>vr_htotal,
---		hsync		=>vr_hsync,
---		hvbgn		=>vr_hvbgn,
---		hvend		=>vr_hvend,
---		vtotal		=>vr_vtotal,
---		vsync		=>vr_vsync,
---		vvbgn		=>vr_vvbgn,
---		vvend		=>vr_vvend,
---		hadj		=>vr_hadj,
---		intraster	=>vr_rintline,
---		txtoffsetx	=>txt_offsetx,
---		txtoffsety	=>txt_offsety,
---		g0offsetx	=>gr0_offsetx,
---		g0offsety	=>gr0_offsety,
---		g1offsetx	=>gr1_offsetx,
---		g1offsety	=>gr1_offsety,
---		g2offsetx	=>gr2_offsetx,
---		g2offsety	=>gr2_offsety,
---		g3offsetx	=>gr3_offsetx,
---		g3offsety	=>gr3_offsety,
---		siz			=>vr_size,
---		col			=>vr_col,
---		HF			=>vr_hfreq,
---		VD			=>vr_VD,
---		HD			=>vr_HD,
---		MEN			=>vr_MEN,
---		SA			=>vr_SA,
---		AP			=>vr_AP,
---		CP			=>vr_rcpyplane,
---		DC          =>vr_DC,
---		csrc		=>vr_rcpysrc,
---		cdst		=>vr_rcpydst,
---		RCbgn		=>vr_rcpybgn,
---		RCend		=>vr_rcpyend,
---		FCbgn		=>vr_fcbgn,
---		FCend		=>vr_fcend,
---		VIbgn		=>open,
---		VIend		=>open,
---		tmask		=>vr_txtmask,
---		RCbusy		=>vr_rcpybusy,
---		FCbusy		=>vr_fcbusy,
---		VIbusy		=>'0',
---		GR_SIZE		=>vr_GR_SIZE,
---		GR_CMODE	=>vr_GR_CMODE,
---		PRI_SP		=>vr_PRI_SP,
---		PRI_TX		=>vr_PRI_TX,
---		PRI_GR		=>vr_PRI_GR,
---		GR_PRI		=>vr_GR_PRI,
---		GRPEN		=>vr_GRPEN,
---		TXTEN		=>vr_TXTEN,
---		SPREN		=>VR_SPREN,
---		GT			=>vr_GT,
---		GG			=>vr_GG,
---		BP			=>vr_BP,
---		HP			=>vr_HP,
---		EXON		=>vr_EXON,
---		VHT			=>vr_VHT,
---		AH			=>vr_AH,
---		YS			=>vr_YS,
---		
---		clk		=>sysclk,
---		ce      =>sys_ce,
---		rstn	=>srstn
---	);
 	vreg	:vcreg port map(
 		addr	=>abus(23 downto 0),
 		rdat	=>vr_rdat,
@@ -3358,149 +2757,10 @@ begin
 		clk		=>sysclk,
 		rstn	=>srstn
 	);
-	
+
 	vr_GREN<=	vr_GRPEN(4) when vr_GR_SIZE='1' else
 					'0' when vr_GRPEN(3 downto 0)="0000" else
 					'1';
---	vc	:vidcont generic map(RAMAWIDTH-1) port map(
---		1G	=>"011100000000000000000000",
---		g_base	=>"011101000000000000000000",
---		g00_addr	=>g00_addr,
---		g00_rd		=>g00_rd,
---		g00_rdat	=>g00_rdat,
---		g01_addr	=>g01_addr,
---		g01_rd		=>g01_rd,
---		g01_rdat	=>g01_rdat,
---		g02_addr	=>g02_addr,
---		g02_rd		=>g02_rd,
---		g02_rdat	=>g02_rdat,
---		g03_addr	=>g03_addr,
---		g03_rd		=>g03_rd,
---		g03_rdat	=>g03_rdat,
---
---		t0_addr		=>t0_addr,
---		t0_rd		=>t0_rd,
---		t0_rdat0	=>t0_rdat0,
---		t0_rdat1	=>t0_rdat1,
---		t0_rdat2	=>t0_rdat2,
---		t0_rdat3	=>t0_rdat3,
---
---		g10_addr	=>g10_addr,
---		g10_rd		=>g10_rd,
---		g10_rdat	=>g10_rdat,
---		g11_addr	=>g11_addr,
---		g11_rd		=>g11_rd,
---		g11_rdat	=>g11_rdat,
---		g12_addr	=>g12_addr,
---		g12_rd		=>g12_rd,
---		g12_rdat	=>g12_rdat,
---		g13_addr	=>g13_addr,
---		g13_rd		=>g13_rd,
---		g13_rdat	=>g13_rdat,
---
---		t1_addr		=>t1_addr,
---		t1_rd		=>t1_rd,
---		t1_rdat0	=>t1_rdat0,
---		t1_rdat1	=>t1_rdat1,
---		t1_rdat2	=>t1_rdat2,
---		t1_rdat3	=>t1_rdat3,
---
---		t_hoffset	=>txt_offsetx,
---		t_voffset	=>txt_offsety,
---
---		g0_caddr	=>g0_caddr,
---		g0_clear	=>g0_clear,
---		
---		g1_caddr	=>g1_caddr,
---		g1_clear	=>g1_clear,
---
---		g2_caddr	=>g2_caddr,
---		g2_clear	=>g2_clear,
---
---		g3_caddr	=>g3_caddr,
---		g3_clear	=>g3_clear,
---
---		g0_hoffset	=>gr0_offsetx,
---		g0_voffset	=>gr0_offsety,
---		g1_hoffset	=>gr1_offsetx,
---		g1_voffset	=>gr1_offsety,
---		g2_hoffset	=>gr2_offsetx,
---		g2_voffset	=>gr2_offsety,
---		g3_hoffset	=>gr3_offsetx,
---		g3_voffset	=>gr3_offsety,
---
---		gmode		=>vr_GR_CMODE,		--00:4bit color 01:8bit color 11/10:16bit color
---		memres		=>vr_GR_SIZE,		--0:512x512 1:1024x1024
---		hres	=>out_HMODE,
---		vres	=>out_VMODE(0),
---		txten	=>vr_TXTEN,
---		grpen	=>vr_GREN,
---		spren	=>vr_SPREN,
-----		txten	=>'1',
-----		grpen	=>'1',
-----		spren	=>'1',
---		graphen	=>vr_GRPEN,
---		pri_sp	=>vr_PRI_SP,
---		pri_tx	=>vr_PRI_TX,
---		pri_gr	=>vr_PRI_GR,
---		grpri	=>vr_GR_PRI,
---		exon		=>vr_exon,
---		hp			=>vr_HP,
---		bp			=>vr_BP,
---		gg			=>vr_GG,
---		gt			=>vr_GT,
---		ah			=>vr_AH,
---		ys          =>vr_YS,
---		vht         =>vr_VHT,
---		lsel        =>LRAMSEL,
---
---		lbaddr	=>LBUFADR,
---		lbwdat	=>LBUFWD,
---		lbwr	=>LBUFWR,
---		
---		hcomp	=>HCOMP,
---		vpstart	=>VPSTART,
---		hfreq	=>out_hfreq,
---		htotal	=>out_htotal,
---		hvbgn	=>out_hvbgn,
---		hvend	=>out_hvend,
---		vtotal	=>out_vtotal,
---		vvbgn	=>out_vvbgn,
---		vvend	=>out_vvend,
---		
---		addrx	=>spr_x,
---		addry	=>spr_y,
---		sprite_in=>spr_dot,
---		
---		tpalno	=>tpal_pno,
---		tpalin	=>tpal_pdat,
---		tpal0in	=>tpal0_pdat,
---		gpal0in =>gpal0_pdat,
---		spalno	=>spal_pno,
---		spalin	=>spal_pdat,
---
---		gpal0no	=>gpal_pnol,
---		gpal1no	=>gpal_pnoh,
---		gpalin	=>gpal_pdat,
---	
---		vvideoen	=>VID_VVIDEN,
---		rintline=>out_rintl,
---		rint	=>VID_RINT,
---		
-----		vlineno	=>vlineno,
---	
---		gclrbgn	=>vr_fcbgn,
---		gclrend	=>vr_fcend,
---		gclrpage=>vr_rcpyplane,
---		gclrbusy=>vr_fcbusy,
---		
---		hblank  =>VID_HRTC,
---		vblank  =>VID_VRTC,
---		
---		vidclk	=>vidclk,
---		vid_ce  =>vid_ce,
---		rstn	=>vid_rstn
---	);
 	vc	:vidcont generic map(RAMAWIDTH-1) port map(
 		t_base	=>"011100000000000000000000",
 		g_base	=>"011101000000000000000000",
@@ -3634,7 +2894,6 @@ begin
 		sysclk	=>sysclk,
 		rstn	=>vid_rstn
 	);
-
 	
 	rcpy	:rastercopy generic map(
 		arange	=>RAMAWIDTH-brsize-1,
@@ -3644,8 +2903,8 @@ begin
 		dst		=>vr_rcpydst,
 		plane	=>vr_rcpyplane,
 		start	=>vr_rcpybgn,
-		stop	=>vr_rcpyend,
---		stop	=>'0',
+--		stop	=>vr_rcpyend,
+		stop	=>'0',
 		busy	=>vr_rcpybusy,
 		
 		t_base	=>trambase(RAMAWIDTH-1 downto brsize+1),	
@@ -3656,7 +2915,6 @@ begin
 		ack		=>ram_cpya,
 		
 		clk		=>sysclk,
-		ce      =>sys_ce,
 		rstn		=>srstn
 	);
 	
@@ -3703,7 +2961,6 @@ begin
 		debugsel	=>dsprbgen,
 		
 		clk		=>vidclk,
-		ce      =>vid_ce,
 		rstn	=>srstn
 	);
 
@@ -3736,13 +2993,11 @@ begin
 		HDISP	=>open,
 		VDISP	=>open,
 		LH		=>open,
-		--VRES	=>spreg_VRES,
+		VRES	=>spreg_VRES,
 		HRES	=>spreg_HRES,
 		
 		sclk	=>sysclk,
-		sys_ce  =>sys_ce,
 		vclk	=>vidclk,
-		vid_ce  =>vid_ce,
 		rstn	=>srstn
 	);
 	
@@ -3766,9 +3021,7 @@ begin
 		bg_PAT	=>bg_PAT,
 		
 		sclk	=>sysclk,
-		sys_ce  =>sys_ce,
 		vclk	=>vidclk,
-		vid_ce  =>vid_ce,
 		rstn	=>srstn
 	);
 
@@ -3787,31 +3040,20 @@ begin
 		palout	=>tpal_pdat,
 		
 		sclk	=>sysclk,
-		sys_ce  =>sys_ce,
 		vclk	=>vidclk,
-		vid_ce  =>vid_ce,
 		rstn	=>srstn
 	);
 	
-	process(sysclk,rstn,sys_ce)begin
+	process(sysclk,rstn)begin
 		if(rstn='0')then
 			tpal0_pdat<=(others=>'0');
-			gpal0_pdat<=(others=>'0');
-		elsif(sysclk' event and sysclk='1' and sys_ce = '1')then
+		elsif(sysclk' event and sysclk='1')then
 			if(tpal_cs='1' and abus(8 downto 1)="00000000")then
 				if(b_wr(1)='1')then
 					tpal0_pdat(15 downto 8)<=dbus(15 downto 8);
 				end if;
 				if(b_wr(0)='1')then
 					tpal0_pdat( 7 downto 0)<=dbus( 7 downto 0);
-				end if;
-			end if;
-			if(gpal_cs='1' and abus(8 downto 1)="00000000")then
-				if(b_wr(1)='1')then
-					gpal0_pdat(15 downto 8)<=dbus(15 downto 8);
-				end if;
-				if(b_wr(0)='1')then
-					gpal0_pdat( 7 downto 0)<=dbus( 7 downto 0);
 				end if;
 			end if;
 		end if;
@@ -3830,9 +3072,7 @@ begin
 		palout	=>spal_pdat,
 		
 		sclk	=>sysclk,
-		sys_ce  =>sys_ce,
 		vclk	=>vidclk,
-		vid_ce  =>vid_ce,
 		rstn	=>srstn
 	);
 	
@@ -3856,104 +3096,37 @@ begin
 		palout	=>gpal_pdat,
 		
 		sclk	=>sysclk,
-		sys_ce  =>sys_ce,
 		vclk	=>vidclk,
-		vid_ce  =>vid_ce,
 		rstn	=>srstn
 	);
 
 	FD_HDn<=not FD_HD;
-	FDT	:FDtiming generic map(FCFREQ) port map(
-		drv0sel		=>'0',	--0:300rpm 1:360rpm
-		drv1sel		=>'0',
-		drv0sele	=>'0',
-		drv1sele	=>'0',
-	
-		drv0hd		=>FD_HDn,
-		drv0hdi		=>'1',		--IBM 1.44MB format
-		drv1hd		=>FD_HDn,
-		drv1hdi		=>'1',		--IBM 1.44MB format
-		
-		drv0hds		=>open,
-		drv1hds		=>open,
-		
-		drv0int		=>FD_int0,
-		drv1int		=>FD_int1,
-		
-		hmssft		=>FD_hmssft,
-		
-		clk			=>fdcclk,
-		ce          =>fd_ce,
-		rstn		=>rstn
-	);
 	
 	FDC_DACKn<=not FDC_DACK;
 	FDC_CSn<=not FDC_CS;
-	fd	:fdcs generic map(
-		maxtrack	=>85,
-		maxbwidth	=>(BR_300_D*FCFREQ/1000000),
-		sysclk		=>FCFREQ/1000
-	)
-	port map(
-		RDn		=>b_rdn,
-		WRn		=>b_wrn(0),
-		CSn		=>FDC_CSn,
-		A0		=>abus(1),
-		WDAT	=>dbus(7 downto 0),
-		RDAT	=>FDC_WD,
-		DATOE	=>FDC_OE,
-		DACKn	=>FDC_DACKn,
-		DRQ		=>FDC_DRQ,
-		TC		=>FDC_TC,
-		INTn	=>FDC_INTn,
-		--WAITIN	=>FDC_WAIT,
 
-		WREN	=>FDC_wrenn,
-		WRBIT	=>FDC_wrbitn,
-		RDBIT	=>FDC_rdbitn,
-		STEP	=>FDC_stepn,
-		SDIR	=>FDC_sdirn,
-		WPRT	=>FDC_wprotn,
-		track0	=>FDC_track0n,
-		index	=>FDC_indexn,
-		side	=>FDC_siden,
-		usel	=>open,
-		READY	=>FDC_READYm,
-		
-		int0	=>FD_int0,
-		int1	=>FD_int1,
-		int2	=>FD_int0,
-		int3	=>FD_int1,
-	
-		td0		=>'1',
-		td1		=>'1',
-		td2		=>'1',
-		td3		=>'1',
-		
-		hmssft	=>FD_hmssft,
-		
-		--busy	=>FDC_BUSY,
-		mfm		=>FDC_MFM,
-		
-		ismode	=>'0',
-		
-		sclk		=>sysclk,
-		sys_ce      =>sys_ce,
-		fclk		=>fdcclk,
-		fd_ce       =>fd_ce,
-		rstn	=>srstn
-	);
 
 	FDC_INT<=not FDC_INTn;
 	
-	FDC_USELn<=	--"1111" when FD_MOTOR='0' else
-				"1110" when FD_USEL="00" else
-				"1101" when FD_USEL="01" else
-				"1011" when FD_USEL="10" else
-				"0111" when FD_USEL="11" else
-				"1111";
-	FDC_MOTORn<=not FD_MOTOR & not FD_MOTOR & not FD_MOTOR & not FD_MOTOR;
-	
+	process(FD_MOTOR,fdc_usel,fdc_indisk)begin
+		case fdc_usel is
+		when "00" =>
+			if(fdc_indisk(0)='1')then
+				FDC_READYn<=not FD_MOTOR;
+			else
+				FDC_READYn<='1';
+			end if;
+		when "01" =>
+			if(fdc_indisk(1)='1')then
+				FDC_READYn<=not FD_MOTOR;
+			else
+				FDC_READYn<='1';
+			end if;
+		when others =>
+			FDC_READYn<='1';
+		end case;
+	end process;
+
 	FDC_READYm<=FDC_READYn and (not opm_ct2);
 
 	IOU	:IOcont port map(
@@ -3991,14 +3164,11 @@ begin
 		prn_int		=>'0',
 		
 		clk			=>sysclk,
-		ce          =>sys_ce,
 		rstn		=>srstn
 	);
 	SASI_IACK<='0';
 	
 	ppi_csn<='0' when abus(23 downto 3)=(x"e9a00" & '0') else '1';
-	ppi_pchi <= (others=>'0');
-	ppi_pcli <= (others=>'0');
 
 	PPI	: e8255 port map(
 		CSn		=>ppi_csn,
@@ -4010,11 +3180,11 @@ begin
 		DATOE	=>ppi_doe,
 		
 		PAi		=>ppi_pai,
-		--PAo		=>ppi_pao,
-		--PAoe	=>ppi_paoe,
+		PAo		=>ppi_pao,
+		PAoe	=>ppi_paoe,
 		PBi		=>ppi_pbi,
-		--PBo		=>ppi_pbo,
-		--PBoe	=>ppi_pboe,
+		PBo		=>ppi_pbo,
+		PBoe	=>ppi_pboe,
 		PCHi	=>ppi_pchi,
 		PCHo	=>ppi_pcho,
 		PCHoe	=>ppi_pchoe,
@@ -4023,7 +3193,6 @@ begin
 		PCLoe	=>ppi_pcloe,
 		
 		clk		=>sysclk,
-		ce      =>sys_ce,
 		rstn	=>srstn
 	);
 
@@ -4034,20 +3203,18 @@ begin
 --	pJoyA(4)<='Z' when ppi_pcho(2)='0' else '0';
 --	pJoyA(5)<='Z' when ppi_pcho(3)='0' else '0';
 	pcm_clkdiv<=ppi_pclo(3 downto 2);
-	pcm_enL<=not ppi_pclo(1);
-	pcm_enR<=not ppi_pclo(0);
+	pcm_enL<=not ppi_pclo(0);
+	pcm_enR<=not ppi_pclo(1);
 	
-	process(vidclk) begin
-		if rising_edge(vidclk) then
-			if(srstn='0')then
-				VID_HRTCd<='0';
-			elsif(vid_ce = '1')then
-				VID_HRTCd<=VID_HRTC;
-			end if;
+	process(vidclk,srstn)begin
+		if(srstn='0')then
+			VID_HRTCd<='0';
+		elsif(vidclk' event and vidclk='1')then
+			VID_HRTCd<=VID_HRTC;
 		end if;
 	end process;
 	
-	VID_HRTCi<=VID_HRTCd;-- and (vr_hfreq or not vr_VD(0) or (pVideoF1 and vlineno(0)) or (not pVideoF1 and not vlineno(0)));
+	VID_HRTCi<=VID_HRTCd and (vr_hfreq or vlineno(0));
 	
 	mfp_gpip7<=VID_HRTCi;
 	mfp_gpip6<=not VID_RINT;
@@ -4147,13 +3314,10 @@ begin
 		mdatout	=>ms_datout,
 		
 		clk		=>sysclk,
-		ce      =>sys_ce,
 		rstn	=>srstn
 	);
 
-	
-	opm_csn<='0' when abus(23 downto 2)="1110100100000000000000" else '1';
-	
+		
 --	process(sysclk,rstn)begin
 --		if(rstn='0')then
 --			opm_sft<='0';
@@ -4162,68 +3326,67 @@ begin
 --		end if;
 --	end process;
 	
+	dopmonoff<=(others=>'1');
 	
-	-- FM:OPM generic map(16) port map(
-	-- 	DIN		=>dbus(7 downto 0),
-	-- 	DOUT	=>opm_odat,
-	-- 	DOE		=>opm_doe,
-	-- 	CSn		=>opm_csn,
-	-- 	ADR0	=>abus(1),
-	-- 	RDn		=>b_rdn,
-	-- 	WRn		=>b_wrn(0),
-	-- 	INTn	=>opm_intn,
+	FM1:OPM generic map(16) port map(
+		DIN		=>dbus(7 downto 0),
+		DOUT	=>opm_odat1,
+		DOE		=>opm_doe1,
+		CSn		=>opm_cen,
+		ADR0	=>abus(1),
+		RDn		=>b_rdn,
+		WRn		=>b_wrn(0),
+		INTn	=>opm_intn1,
 		
-	-- 	sndL	=>opm_sndl,
-	-- 	sndR	=>opm_sndr,
+		sndL	=>opm_sndl1,
+		sndR	=>opm_sndr1,
 		
-	-- 	CT1		=>pcm_clkmode,
-	-- 	CT2		=>opm_ct2,
+		CT1		=>pcm_clkmode1,
+		CT2		=>opm_ct21,
 		
-	-- --	monout	:out std_logic_vector(15 downto 0);
-	-- 	chenable	=>dopmonoff,
+	--	monout	:out std_logic_vector(15 downto 0);
+		chenable	=>dopmonoff,
+		tonemode	=>pTonemode,
 
-	-- 	fmclk		=>sndclk,
-	-- 	pclk		=>sysclk,
-	-- 	rstn	=>srstn
-	-- );
+		fmclk		=>sndclk,
+		pclk		=>sysclk,
+		rstn	=>srstn
+	);
 
-	opm_doe <= b_rd and not opm_csn;
-	FM:jt51 port map(
+	opm_doe2 <= b_rd and not opm_cen;
+	opm_cen<='0' when abus(23 downto 2)="1110100100000000000000" else '1';		
+
+	FM2:jt51 port map(
 		rst      => not srstn,
 		clk      => sysclk,
 		cen      => opm_ce(0),
 		cen_p1   => opm_ce(1),
-		cs_n     => opm_csn,
+		cs_n     => opm_cen,
 		wr_n     => b_wrn(0),
 		a0       => abus(1),
 		din      => dbus(7 downto 0),
-		dout     => opm_odat,
-		ct1      => pcm_clkmode,
-		ct2      => opm_ct2,
-		irq_n    => opm_intn,
+		dout     => opm_odat2,
+		ct1      => pcm_clkmode2,
+		ct2      => opm_ct22,
+		irq_n    => opm_intn2,
 		sample   => open,
-		left     => opm_sndl,
-		right    => opm_sndr,
-		xleft    => open,
-		xright   => open,
-		dacleft  => open,
-		dacright => open
+		left     => open,
+		right    => open,
+		xleft    => opm_sndl2,
+		xright   => opm_sndr2
 	);
-
+	
 	pcm_ce<='1' when abus(23 downto 2)="1110100100100000000000" else '0';
 	pcm_wr<=b_wr(0) when pcm_ce='1' else '0';
 	pcm_doe<=b_rd when pcm_ce='1' else '0';
-	
-	cm_out <= pcm_clkmode;
 		
-	-- pcmc	:pcmclk port map(
-	-- 	clkmode	=>pcm_clkmode,
-	-- 	pcmsft	=>pcm_sft,
+	pcmc	:pcmclk port map(
+		clkmode	=>pcm_clkmode,
+		pcmsft	=>pcm_sft,
 		
-	-- 	clk		=>sndclk,
-	-- 	ce      =>snd_ce,
-	-- 	rstn		=>srstn
-	-- );
+		clk		=>sndclk,
+		rstn		=>srstn
+	);
 	
 	pcm	:e6258 port map(
 		addr		=>abus(1),
@@ -4233,107 +3396,81 @@ begin
 		drq		=>pcm_drq,
 		
 		clkdiv	=>pcm_clkdiv,
-		sft		=>snd_ce,
+		sft		=>pcm_sft,
 		
 		sndout	=>pcm_snd,
 		
 		sysclk	=>sysclk,
-		sys_ce  =>sys_ce,
 		sndclk	=>sndclk,
-		snd_ce  =>'1',
 		rstn		=>srstn
 	);
 	
-	-- pcm_sndL<= (others=>'0') when (pcm_enL='0' and ppi_pcloe='1') else (pcm_snd(11) & pcm_snd & "000");
-	-- pcm_sndR<= (others=>'0') when (pcm_enR='0' and ppi_pcloe='1') else (pcm_snd(11) & pcm_snd & "000");
+	pcm_sndL<=(pcm_snd(11) & pcm_snd & "000") when pcm_enL='1' else (others=>'0');
+	pcm_sndR<=(pcm_snd(11) & pcm_snd & "000") when pcm_enR='1' else (others=>'0');
 	
-	process(sndclk, snd_ce) begin
-		if rising_edge(sndclk) then
-			if (srstn = '0') then
-				pcm_sndL <= (others=>'0');
-				pcm_sndR <= (others=>'0');
-			elsif (snd_ce = '1') then
-				if (pcm_enL='1' or ppi_pcloe='0') then
-					pcm_sndL<=(pcm_snd(11) & pcm_snd & "000");
-				end if;
-				if (pcm_enR='1' or ppi_pcloe='0') then
-					pcm_sndR<=(pcm_snd(11) & pcm_snd & "000");
-				end if;
-			end if;
-		end if;
-	end process;
-
-	process(sndclk,srstn,snd_ce)
+	process(sndclk,srstn)
+	variable	sclk	:std_logic;
 	begin
 		if(srstn='0')then
+			sclk:='0';
 			opm_wstate<=0;
-		elsif(sndclk' event and sndclk='1' and snd_ce = '1')then
+		elsif(sndclk' event and sndclk='1')then
 			case opm_wstate is
 			when 0 =>
-				if(opm_csn='0' and (b_wrn(0)='0' or b_rdn='0'))then
+				if(opm_cen='0' and (b_wrn(0)='0' or b_rdn='0'))then
 					opm_wstate<=1;
 				end if;
 			when 1 =>
 				opm_wstate<=2;
 			when 2 =>
-				if(opm_csn='1')then
+				if(opm_cen='1')then
 					opm_wstate<=0;
 				end if;
 			when others =>
 				opm_wstate<=0;
 			end case;
+			sclk:=sndclk;
 		end if;
 	end process;
 	
-	iowait_opm<='1' when (opm_csn='0' and (b_wrn(0)='0' or b_rdn='0') and opm_wstate/=2) else '0';
+	opm_sndL <= opm_sndL1 when oplmode='0' else opm_sndL2;
+	opm_sndR <= opm_sndR1 when oplmode='0' else opm_sndR2;
+	opm_doe <= opm_doe1 when oplmode='0' else opm_doe2;
+	opm_odat <= opm_odat1 when oplmode='0' else opm_odat2;
+	opm_intn <= opm_intn1 when oplmode='0' else opm_intn2;
+	opm_ct2 <= opm_ct21 when oplmode='0' else opm_ct22;
+   pcm_clkmode <= pcm_clkmode1 when oplmode='0' else pcm_clkmode2;
 
-	mixL	:addsat generic map(16) port map(opm_sndL(15) & opm_sndL(15 downto 1),pcm_sndL,mix_sndL,open,open);
-	mixR	:addsat generic map(16) port map(opm_sndR(15) & opm_sndR(15 downto 1),pcm_sndR,mix_sndR,open,open);
+	iowait_opm<='1' when (opm_cen='0' and (b_wrn(0)='0' or b_rdn='0') and opm_wstate/=2) else '0';
+   
+--	mixL	:addsat generic map(16) port map(opm_sndL(15) & opm_sndL(15 downto 1),pcm_sndL,mix_sndL,open,open);
+--	mixR	:addsat generic map(16) port map(opm_sndR(15) & opm_sndR(15 downto 1),pcm_sndR,mix_sndR,open,open);
+	mixL	:addsat generic map(16) port map(opm_sndL,pcm_sndL,mix_sndL,open,open);
+	mixR	:addsat generic map(16) port map(opm_sndR,pcm_sndR,mix_sndR,open,open);
 
-	--dacs	:sftclk generic map(ACFREQ,DACFREQ,1) port map("1",dacsft,sndclk,snd_ce,srstn);
-	
-	pSndPCML <= pcm_sndL;
-	pSndPCMR <= pcm_sndR;
-	pSndYML  <= opm_sndL;
-	pSndYMR  <= opm_sndR;
-
-	sndL<=mix_sndL;
-
-	sndR<=mix_sndR;
+	process(sndclk)begin
+		if(sndclk' event and sndclk='1')then
+			sndL<=mix_sndL;
+			sndR<=mix_sndR;
+		end if;
+	end process;
 	
 	pSndL<=sndL;
 	pSndR<=sndR;
 	
-	-- DacL	:deltasigmadac generic map(16) port map(
-	-- 	data	=>(not sndL(15)) & sndL(14 downto 0),
-	-- 	datum	=>open,
-		
-	-- 	sft	=>dacsft,
-	-- 	clk	=>sndclk,
-	-- 	rstn	=>srstn
-	-- );
-	-- DacR	:deltasigmadac generic map(16) port map(
-	-- 	data	=>(not sndR(15)) & sndR(14 downto 0),
-	-- 	datum	=>open,
-		
-	-- 	sft	=>dacsft,
-	-- 	clk	=>sndclk,
-	-- 	rstn	=>srstn
-	-- );
-
---opm_doe<='1' when opm_csn='0' and b_rdn='1' else '0';
+--opm_doe<='1' when opm_cen='0' and b_rdn='1' else '0';
 	
 	pPs2Clkout<=kb_clkout;
 	pPs2Datout<=kb_datout;
 	pPmsClkout<=ms_clkout;
 	pPmsDatout<=ms_datout;
-	process(sysclk,srstn,sys_ce)begin
+	process(sysclk,srstn)begin
 		if(srstn='0')then
 			kb_clkin<='1';
 			kb_datin<='1';
 			ms_clkin<='1';
 			ms_datin<='1';
-		elsif(sysclk' event and sysclk='1' and sys_ce = '1')then
+		elsif(sysclk' event and sysclk='1')then
 			kb_clkin<=pPs2Clkin;
 			kb_datin<=pPs2Datin;
 			ms_clkin<=pPmsClkin;
@@ -4345,7 +3482,7 @@ begin
 	rtc_doe<=b_rd when rtc_cs='1' else '0';
 	rtc_wr<=b_wr(0) when rtc_cs='1' else '0';
 
-	rtc	:rp5c15 generic map(SCFREQ*1000,x"20") port map(
+	rtc	:rp5c15_MiSTer generic map(SCFREQ*1000,x"20") port map(
 		addr		=>abus(4 downto 1),
 		wdat		=>dbus(3 downto 0),
 		rdat		=>rtc_odat,
@@ -4357,14 +3494,13 @@ begin
 		RTCIN		=>sysrtc,
 
 		clk		=>sysclk,
-		ce      =>sys_ce,
 		rstn		=>'1'
 	);
 
 	INT2<='0';
-	INT4<='0';
+	INT4<=midi_int;
 	IVECT2<=(others=>'0');
-	IVECT4<=(others=>'0');
+	IVECT4<=midi_ivect;
 
 	INT7<=not pPsw(1);
 
@@ -4383,8 +3519,8 @@ begin
 		DATOUT=>midi_odat,
 		DATWR	=>midi_wr,
 		DATRD	=>midi_rd,
-		--INT	=>midi_int,
-		--IVECT	=>midi_ivect,
+		INT	=>midi_int,
+		IVECT	=>midi_ivect,
 
 		RxD	=>pMidi_in,
 		TxD	=>pMidi_out,
@@ -4395,12 +3531,32 @@ begin
 		GPOUT	=>open,
 		GPIN	=>(others=>'1'),
 		GPOE	=>open,
+	
+		gcountsft	=>midi_Sft,
+		ccountsft	=>midi_csft,
+		mcountsft	=>midi_sft,
 		
 		clk	=>sysclk,
-		ce  =>sys_ce,
 		rstn	=>srstn
 	);
+	
+	midis	: sftgen generic map(midis_div) port map(
+		len		=>midis_div,
+		sft		=>midi_sft,
+		
+		clk		=>sysclk,
+		rstn		=>srstn
+	);
 
+	midics	:sftnpn generic map(5) port map(
+		numer		=>"10100",
+		sftin		=>'1',
+		sftout	=>midi_csft,
+		
+		clk		=>sysclk,
+		rstn		=>srstn
+	);
+	
 	SASI_CS<='1' when abus(23 downto 3)=(x"e9600" & '0') else '0';
 	
 	SASI	:sasiif port map(
@@ -4421,87 +3577,65 @@ begin
 		ODAT	=>SASI_H2C,
 		ODEN	=>open,
 		SEL		=>SASI_SEL,
-		BSY		=>SASI_BSYf,
-		REQ		=>SASI_REQf,
+		BSY		=>SASI_BSY,
+		REQ		=>SASI_REQ,
 		ACK		=>SASI_ACK,
-		IO		=>SASI_IOf,
-		CD		=>SASI_CDf,
-		MSG		=>SASI_MSGf,
+		IO			=>SASI_IO,
+		CD			=>SASI_CD,
+		MSG		=>SASI_MSG,
 		RST		=>SASI_RST,
 		
 		clk		=>sysclk,
-		ce      =>sys_ce,
 		rstn	=>srstn
 	);
-	-- SELf	:digifilter generic map(2,'0') port map(SASI_SEL,SASI_SELf,emuclk,emu_ce,srstn);
-	-- BSYf	:digifilter generic map(2,'0') port map(SASI_BSY,SASI_BSYf,sysclk,sys_ce,srstn);
-	-- REQf	:digifilter generic map(2,'0') port map(SASI_REQ,SASI_REQf,sysclk,sys_ce,srstn);
-	-- ACKf	:digifilter generic map(2,'0') port map(SASI_ACK,SASI_ACKf,emuclk,emu_ce,srstn);
-	-- IOf		:digifilter generic map(2,'0') port map(SASI_IO,SASI_IOf,sysclk,sys_ce,srstn);
-	-- CDf		:digifilter generic map(2,'0') port map(SASI_CD,SASI_CDf,sysclk,sys_ce,srstn);
-	-- MSGf	:digifilter generic map(2,'0') port map(SASI_MSG,SASI_MSGf,sysclk,sys_ce,srstn);
-	-- RSTf	:digifilter generic map(2,'0') port map(SASI_RST,SASI_RSTf,emuclk,emu_ce,srstn);
+
+	hms	:sftclk generic map(SCFREQ,2,1) port map("1",FD_hmssft,sysclk,srstn);
+	txsft	:sftclk generic map(SCFREQ,62,1) port map("1",FD_bitsft,sysclk,srstn);
 	
-	SASI_SELf <= SASI_SEL;
-	SASI_BSYf <= SASI_BSY;
-	SASI_REQf <= SASI_REQ;
-	SASI_ACKf <= SASI_ACK;
-	SASI_IOf <= SASI_IO;
-	SASI_CDf <= SASI_CD;
-	SASI_MSGf <= SASI_MSG;
-	SASI_RSTf <= SASI_RST;
-	
-	DISKE	:diskemu generic map(FCFREQ,SCFREQ,10) port map(
+	DISKE	:diskemu_misterFDC generic map(SCFREQ,100,7,5) port map(
 
 	--SASI
 		sasi_din	=>SASI_H2C,
-		sasi_dout	=>SASI_C2H,
-		sasi_sel	=>SASI_SELf,
+		sasi_dout=>SASI_C2H,
+		sasi_sel	=>SASI_SEL,
 		sasi_bsy	=>SASI_BSY,
 		sasi_req	=>SASI_REQ,
-		sasi_ack	=>SASI_ACKf,
-		sasi_io		=>SASI_IO,
-		sasi_cd		=>SASI_CD,
+		sasi_ack	=>SASI_ACK,
+		sasi_io	=>SASI_IO,
+		sasi_cd	=>SASI_CD,
 		sasi_msg	=>SASI_MSG,
-		sasi_rst	=>SASI_RSTf,
+		sasi_rst	=>SASI_RST,
 
 	--FDD
-		fdc_useln	=>FDC_USELn(1 downto 0),
-		fdc_motorn	=>FDC_MOTORn(1 downto 0),
-		fdc_readyn	=>FDC_READYn,
-		fdc_wrenn	=>FDC_wrenn,
-		fdc_wrbitn	=>FDC_wrbitn,
-		fdc_rdbitn	=>FDC_rdbitn,
-		fdc_stepn	=>FDC_stepn,
-		fdc_sdirn	=>FDC_sdirn,
-		fdc_track0n	=>FDC_track0n,
-		fdc_indexn	=>FDC_indexn,
-		fdc_siden	=>FDC_siden,
-		fdc_wprotn	=>FDC_wprotn,
-		fdc_eject	=>FDC_eject(1 downto 0) or pFDEJECT,
+		fdc_tracks	=>"1001101",	--77
+		fdc_sects	=>"01000",		--8
+		fdc_RDn		=>b_rdn,
+		fdc_WRn		=>b_wrn(0),
+		fdc_CSn		=>FDC_CSn,
+		fdc_A0		=>abus(1),
+		fdc_WDAT		=>dbus(7 downto 0),
+		fdc_RDAT		=>FDC_WD,
+		fdc_DATOE	=>FDC_OE,
+		fdc_DACKn	=>FDC_DACKn,
+		fdc_DRQ		=>FDC_DRQ,
+		fdc_TC		=>FDC_TC,
+		fdc_INTn		=>FDC_INTn,
+		fdc_WAITIN	=>FDC_WAIT,
+	
 		fdc_indisk	=>FDC_indisk,
-		fdc_trackwid=>'1',
-		fdc_dencity	=>FD_HDn,
-		fdc_rpm		=>'1',
-		fdc_mfm		=>FDC_MFM,
+		fdc_usel		=>fdc_usel,
+		fdc_mfm		=>fdc_mfm,
+		fdc_sectsize=>fdc_sectsize,
+		fdc_ready	=>not FDC_READYm,
+		fdc_hmssft	=>FD_hmssft,
+		fdc_bitsft	=>FD_bitsft,
+		fdc_fmterr	=>fdc_fmterr,
+		fdc_eject	=>FDC_eject(1 downto 0),
+		fdc_seekwait=>pfdwait(0),
+		fdc_txwait	=>pfdwait(1),
+		fdc_ismode	=>'0',
 		
-	--FD emulator
-		fde_tracklen=>dem_fdetracklen,
-		fde_ramaddr	=>dem_fderamaddr,
-		fde_ramrdat	=>dem_fderamrdat,
-		fde_ramwdat	=>dem_fderamwdat,
-		fde_ramwr	=>dem_fderamwr,
-		fde_ramwait	=>'0',
-		fec_ramaddrh =>dem_fecramaddrh,
-		fec_ramaddrl =>dem_fecramaddrl,
-		fec_ramwe	=>dem_fecramwe,
-		fec_ramrdat	=>dem_fecramwdat,
-		fec_ramwdat	=>dem_fecramrdat,
-		fec_ramrd	=>dem_fecramrd,
-		fec_ramwr	=>dem_fecramwr,
-		fec_rambusy	=>dem_fecrambusy,
-
-		fec_fdsync	=>pFDSYNC,
+		fdc_rxN		=>x"03",
 
 	--SRAM
 		sram_cs		=>nv_ce,
@@ -4533,18 +3667,14 @@ begin
 	--common
 		initdone	=>dem_initdone,
 		busy		=>pLed,
-		fclk		=>fdcclk,
-		fd_ce       =>fd_ce,
 		sclk		=>sysclk,
-		sys_ce      =>sys_ce,
-		rclk		=>ramclk,
-		ram_ce      =>ram_ce,
-		rstn		=>dem_rstn
+		prstn		=>srstn,
+		srstn		=>dem_rstn
 );
 
-	pFDMOTOR<=	not FDC_MOTORn(0) when FDC_USELn(0)='0' else
-					not FDC_MOTORn(1) when FDC_USELn(1)='0' else
-					'0';
+	fdc_fmterr<=	'1' when fdc_mfm='0' else
+						'1' when fdc_sectsize/="11" else
+						'0';
 	
 	nv_wren<=	'0' when nvwp/=x"31" else
 				'0' when nv_ce='0' else
@@ -4553,6 +3683,6 @@ begin
 				
 	nv_doe<=b_rd when nv_ce='1' else '0';
 	
-	--SASI_BUSY<=SASI_BSY;
+	SASI_BUSY<=SASI_BSY;
 	
 end rtl;

@@ -210,52 +210,64 @@ assign LED  =  ~ioctl_download;
 parameter CONF_STR = {
 	"X68000;;",
 	`SEP
-	"S0U,D88,FDD0;",
-	"S1U,D88,FDD1;",
+	"T0,Reset;",
+	"T7,NMI Button;",
+	"T8,Power Button;",
+	`SEP
+	"S0U,XDF,FDD0;",
+	"S1U,XDF,FDD1;",
 	"S2U,HDF,SASI Hard Disk;",
 	"S3,RAM,SRAM;",
 	`SEP
-	"T9,Save FDD0 changes to SD;",
-	"TA,Save FDD1 changes to SD;",
-	"TB,Eject FDD0;",
-	"TC,Eject FDD1;",
-	`SEP
 	"TD,Load SRAM from SD Card;",
 	"TE,Save SRAM to SD Card;",
-	`SEP
+	"OAB,Tone mode,equal,pythagorean,just c major,just a minor;",
+	"O1,FM Sound,Puu (Original),Jotego jt51;",
+	"OCD,FDD wait,disble,seek,data,seek+data;",
 	"OFG,KBD layout,JP Func.,JP Pos.,US Std,US Alt;",
-	"O6,Swap Joysticks,No,Yes;",
-	"O5,Mute Midi,No,Yes;",
 	`SEP
-	"O4,CPU speed,Normal,Turbo;",
-	"T7,NMI Button;",
-	"T8,Power Button;",
-	"T0,Reset;",
+	"O6,Swap Joysticks,No,Yes;",
+	"O3,Mute Midi,No,Yes;",
 	`SEP
 	"V,v",`BUILD_DATE
 };
 
 /////////////////  CLOCKS  ////////////////////////
 
-wire clk_ram, clk_sys, clk_vid, clk_hdmi;
+wire clk_ram, clk_sys, clk_jt51, clk_fdd, clk_snd;
+wire clk_hdmi,clk_vid;
 wire pll_locked;
 
 pll pll
 (
 	.inclk0(CLOCK_50),
 	.c0(clk_ram), // 80mhz
-	.c1(clk_sys), // 40mhz
-//	.c2(clk_hdmi),
+	.c1(clk_sys), // 10mhz
+	.c2(clk_jt51), // 40mhz
+	.c3(clk_fdd), // 30mhz
+	.c4(clk_snd), // 32mhz
 	.locked(pll_locked)
 );
 
-assign clk_vid=clk_ram;
-assign clk_hdmi=clk_vid;
+////////////////////////////////////////////////////////////////
+reg [1:0] opm_ce = 2'b0;
 
-// Video oscillators
-// 40.00000 - CPU/Main Oscillator
-// 69.55199 - Video clock
-// 38.86363 - Also attached to video circuits
+always @(posedge clk_jt51) begin
+	reg [4:0] div_opm;
+	reg [3:0] div_snd2;
+
+	div_snd2 <= div_snd2 + 1'd1;
+	div_opm <= div_opm + 1'd1;
+	if (div_opm == 19) div_opm <= 0;
+
+	opm_ce[0] <= div_snd2 == 9;
+	opm_ce[1] <= div_opm == 19;
+end
+
+//////////////////////////////////////////////////////////////////
+
+assign clk_vid=clk_ram;
+assign clk_hdmi=clk_ram;
 
 altddio_out
 #(
@@ -458,11 +470,7 @@ data_io data_io (
 wire [3:0] img_mounted_d;
 wire [1:0] fdd_eject_d;
 reg [23:0] mount_count[4];
-reg [15:0] fdd_eject_count[2];
-assign fdd_eject_d[0] = |mount_count[0][23:16] || |fdd_eject_count[0];
-assign fdd_eject_d[1] = |mount_count[1][23:16] || |fdd_eject_count[1];
-assign img_mounted_d[0] = ~fdd_eject_d[0] && |mount_count[0];
-assign img_mounted_d[1] = ~fdd_eject_d[1] && |mount_count[1];
+
 assign img_mounted_d[2] = |mount_count[2];
 assign img_mounted_d[3] = |mount_count[3];
 
@@ -479,22 +487,14 @@ always @(posedge clk_sys) begin : rst_block
 	old_im <= img_mounted;
 	if(~old_download & ioctl_download) reset_n <= 1;
 	
-	for (logic [2:0] x = 0; x < 3'd4; x=x+1'd1) begin
+	for (logic [2:0] x = 2; x < 3'd4; x=x+1'd1) begin
 		if (mount_count[x])
 			mount_count[x] <= mount_count[x] - 1'd1;
 		if (img_mounted[x])
 			mount_count[x] <= 24'hFFFFFF;
 	end
-	if (fdeject[0])
-		fdd_eject_count[0]<= 16'hFFFF;
-	if (fdeject[1])
-		fdd_eject_count[1]<= 16'hFFFF;
-	if (fdd_eject_count[0])
-		fdd_eject_count[0] <= fdd_eject_count[0] - 1'd1;
-	if (fdd_eject_count[1])
-		fdd_eject_count[1] <= fdd_eject_count[1] - 1'd1;
 
-	reset <= buttons[1] || status[0] || ~pll_locked  ||~init_reset_n  ||reset_delayed;
+	reset <= buttons[1] | status[0] | ~init_reset_n | |reset_delayed;
 
 	if (reset_delayed)
 		reset_delayed <= reset_delayed - 1'd1;
@@ -509,96 +509,58 @@ end
 
 ////////////////////////////  MJ32pi  ////////////////////////////////// 
 
-wire        mj32_mute  = ~status[5];
-wire [15:0] mj32_i2s_r, mj32_i2s_l;
+wire   [15:0] mj32_i2s_r, mj32_i2s_l;
 
 `ifdef INTERNAL_MT32
 
+wire   [15:0] mj32_r_u, mj32_l_u;
+
 i2s_decoder i2s_inst (
- .clk      (clk_sys   ),         // Conecta el reloj del sistema
+ .clk      (clk_snd   ),         // Conecta el reloj del sistema
  .sck      (MIDI_CLKBD),      // Señal de reloj del I2S
  .sd       (MIDI_DABD ),        // Señal de datos seriales del I2S
- .left_out (mj32_i2s_l), // Salida de datos para el canal izquierdo
- .right_out(mj32_i2s_r) // Salida de datos para el canal derecho
+ .left_out (mj32_l_u), // Salida de datos para el canal izquierdo
+ .right_out(mj32_r_u) // Salida de datos para el canal derecho
 );
+
+assign mj32_i2s_r={~mj32_r_u[15],mj32_r_u[14:0]};
+assign mj32_i2s_l={~mj32_l_u[15],mj32_l_u[14:0]};
 
 assign joy_clk = joy_xclk;
 assign joy_load = joy_xload;
 assign joy_xdata = joy_data;
-
 `endif
 
 
 ///////////////////////////////////////////////////
-wire [15:0] aud_r, aud_l, pcm_r, pcm_l, ym_r, ym_l;
+wire signed [15:0] aud_r, aud_l;
 
 wire NMI = status[7];
 wire POWER = status[8];
-wire [1:0] fdsync = status[10:9];
-wire [1:0] fdeject = status[12:11];
 wire sramld	= status[13];
 wire sramst = status[14];
+wire opmmode = status[1];
+wire [1:0] tonemode = status[11:10];
+wire [1:0] fddwait = status[13:12];
 wire [1:0] kbdtype = status[16:15];
+wire       mj32_mute  = ~status[3];
 
-//assign CLK_VIDEO = clk_vid;
-//assign AUDIO_S = 1;
 
 wire disk_led;
 
 wire [7:0] red, green, blue;
 wire HBlank, VBlank, HSync, VSync, ce_pix, vid_de;
 
-wire snd_clockmode;
-reg sys_ce;
-reg mpu_cep;
-reg mpu_cen;
-reg snd_ce;
-reg [1:0] opm_ce = 0;
-
-always @(posedge clk_sys) begin
-	reg [4:0] div_opm;
-	reg [1:0] div_sys;
-	reg [3:0] div_snd;
-	reg [3:0] div_snd2;
-	reg turbo = 0;
-
-	div_sys <= div_sys + 1'd1;
-	div_snd <= div_snd + 1'd1;
-	div_snd2 <= div_snd2 + 1'd1;
-	div_opm <= div_opm + 1'd1;
-
-	if (div_snd2 == 9) div_snd <= 0;
-	if (div_snd == 4)  div_snd <= 0;
-	if (div_opm == 19) div_opm <= 0;
-
-	opm_ce[0] <= div_snd2 == 9;
-	opm_ce[1] <= div_opm == 19;
-
-	sys_ce <= &div_sys;
-
-	if(&div_sys) turbo <= status[4];
-	mpu_cep <= turbo ?  div_sys[0] : ( div_sys[1] & div_sys[0]);
-	mpu_cen <= turbo ? ~div_sys[0] : (~div_sys[1] & div_sys[0]);
-
-	snd_ce  <= snd_clockmode ? (div_snd2 == 9) : (div_snd == 4);
-end
 
 X68K_top X68K_top
 (
 	.ramclk     (clk_ram),
 	.sysclk     (clk_sys),
 	.vidclk     (clk_vid),
-	.fdcclk     (clk_sys),
-	.sndclk     (clk_sys),
-	
-	.sys_ce     (sys_ce),
-	.mpu_cep    (mpu_cep),
-	.mpu_cen    (mpu_cen),
-	.snd_ce     (snd_ce),
+	.fdcclk     (clk_fdd),
+	.sndclk     (clk_snd),
+   .oplmode    (opmmode),
 	.opm_ce     (opm_ce),
-	
-	.cm_out     (snd_clockmode),
-
 	.plllock    (pll_locked),
 
 	.sysrtc     (sysrtc),
@@ -621,7 +583,6 @@ X68K_top X68K_top
 	.ldr_wr(ldr_wr),
 	.ldr_ack(ldr_ack),
 	.ldr_done(ldr_done),
-	.vid_hz(~status[3]),
 
 	.pPs2Clkin(ps2_kbd_clk_out),
 	.pPs2Clkout(ps2_kbd_clk_in),
@@ -633,7 +594,7 @@ X68K_top X68K_top
 	.pPmsDatin(ps2_mouse_data_out),
 	.pPmsDatout(ps2_mouse_data_in),
 
-	.mist_mounted(img_mounted_d),
+	.mist_mounted(img_mounted),
 	.mist_readonly(img_readonly),
 	.mist_imgsize(img_size),
 
@@ -650,15 +611,14 @@ X68K_top X68K_top
 	.pJoyA(status[6] ? joyA : joyB),
 	.pJoyB(status[6] ? joyB : joyA),
 
-	.pFDSYNC(fdsync),
-	.pFDEJECT(fdd_eject_d),
-	.pFDMOTOR(fdd_active),
-
 	.pLed(disk_led),
 	.pDip(4'b0000),
 	.pPsw({~NMI,~POWER}),
 	.pSramld(sramld),        
 	.pSramst(sramst),
+	
+	.pTonemode(tonemode),
+	.pfdwait(fddwait),
 	.pkbdtype(kbdtype),
 	
 `ifdef INTERNAL_MT32
@@ -678,16 +638,9 @@ X68K_top X68K_top
 	.pVideoVB(VBlank),
 	.pVideoEN(vid_de),
 	.pVideoClk(ce_pix),
-//	.pVideoF1(VGA_F1),
-
+	
 	.pSndL(aud_r),
 	.pSndR(aud_l),
-	
-	.pSndYML(ym_l),
-	.pSndYMR(ym_r),
-	.pSndPCML(pcm_l),
-	.pSNDPCMR(pcm_r),
-
 	.rstn(reset_n & ~reset)
 );
 
@@ -706,47 +659,19 @@ always @(posedge clk_sys) begin
 	if(old_download & ~ioctl_download) ldr_done <= 1;
 end
 
-wire hdd_active;
-wire fdd_active;
-led hdd_led(clk_sys,  sd_ack[2],   hdd_active);
-led fdd_led(clk_sys, |sd_ack[1:0], fdd_active);
 
 
 ////////////////////////////  AUDIO  ////////////////////////////////////
-wire [17:0] mix_r, mix_l;
 reg [15:0] out_l, out_r;
 
-localparam [3:0] comp_f1 = 4;
-localparam [3:0] comp_a1 = 2;
-localparam       comp_x1 = ((32767 * (comp_f1 - 1)) / ((comp_f1 * comp_a1) - 1)) + 1; // +1 to make sure it won't overflow
-localparam       comp_b1 = comp_x1 * comp_a1;
-
-localparam [3:0] comp_f2 = 8;
-localparam [3:0] comp_a2 = 4;
-localparam       comp_x2 = ((32767 * (comp_f2 - 1)) / ((comp_f2 * comp_a2) - 1)) + 1; // +1 to make sure it won't overflow
-localparam       comp_b2 = comp_x2 * comp_a2;
-
-function [15:0] compr; input [15:0] inp;
-	reg [15:0] v, v1, v2;
-	begin
-		v  = inp[15] ? (~inp) + 1'd1 : inp;
-		v1 = (v < comp_x1[15:0]) ? (v * comp_a1) : (((v - comp_x1[15:0])/comp_f1) + comp_b1[15:0]);
-		v2 = (v < comp_x2[15:0]) ? (v * comp_a2) : (((v - comp_x2[15:0])/comp_f2) + comp_b2[15:0]);
-		v  = status[21] ? v2 : v1;
-		compr = inp[15] ? ~(v-1'd1) : v;
-	end
-endfunction 
-
-reg [15:0] cmp_l, cmp_r;
-
-always @(posedge clk_sys) begin
-	out_l <= aud_l + mj32_i2s_l;
-	out_r <= aud_r + mj32_i2s_r;
+always @(posedge clk_snd) begin
+	out_l <= aud_l; //+ mj32_i2s_l;
+	out_r <= aud_r; //+ mj32_i2s_r;
 end
 
 `ifdef I2S_AUDIO
 
-wire [31:0] clk_rate =  32'd40_000_000;
+wire [31:0] clk_rate =  32'd10_000_000;
 
 i2s i2s (
         .reset(reset),
@@ -902,16 +827,5 @@ module led
 	input      in,
 	output reg out
 );
-
-integer counter = 0;
-always @(posedge clk) begin
-	if(!counter) out <= 0;
-	else begin
-		counter <= counter - 1'b1;
-		out <= 1;
-	end
-	
-	if(in) counter <= 4500000;
-end
 
 endmodule

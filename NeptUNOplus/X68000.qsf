@@ -210,9 +210,8 @@ set_global_assignment -name VERILOG_MACRO "NO_DIRECT_UPLOAD=1"
 set_global_assignment -name VERILOG_MACRO "VGA_8BIT=1"
 set_global_assignment -name VERILOG_MACRO "QMTECH=1"
 set_global_assignment -name VERILOG_MACRO "INTERNAL_MT32=1"
-set_global_assignment -name SDC_FILE ../X68000.sdc
+set_global_assignment -name QIP_FILE ../jt51/hdl/jt51.qip
 set_global_assignment -name VERILOG_FILE not_i2s_decoder.v
-set_global_assignment -name SYSTEMVERILOG_FILE ../X68000.sv
 set_global_assignment -name QIP_FILE pll.qip
 set_global_assignment -name QIP_FILE "../mist-modules/mist.qip"
 set_global_assignment -name QIP_FILE ../files.qip

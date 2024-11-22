@@ -25,11 +25,7 @@ port(
 	CT2		:out std_logic;
 	
 	chenable:in std_logic_vector(7 downto 0)	:=(others=>'1');
-	monout	:out std_logic_vector(15 downto 0);
-	op0out	:out std_logic_vector(15 downto 0);
-	op1out	:out std_logic_vector(15 downto 0);
-	op2out	:out std_logic_vector(15 downto 0);
-	op3out	:out std_logic_vector(15 downto 0);
+	tonemode:in std_logic_vector(1 downto 0)	:="00";
 
 	fmclk	:in std_logic;
 	pclk	:in std_logic;
@@ -38,6 +34,7 @@ port(
 end OPM;
 
 architecture rtl of OPM is
+constant envwid	:integer	:=28;
 component OPNREG
 	PORT
 	(
@@ -83,10 +80,10 @@ port(
 );
 end component;
 
-component KEY2FNUM
+component KEY2FNUM_M
 	PORT
 	(
-		address		: IN STD_LOGIC_VECTOR (9 DOWNTO 0);
+		address		: IN STD_LOGIC_VECTOR (11 DOWNTO 0);
 		clock		: IN STD_LOGIC  := '1';
 		q		: OUT STD_LOGIC_VECTOR (11 DOWNTO 0)
 	);
@@ -94,7 +91,7 @@ END component;
 
 component envcont
 generic(
-	totalwidth	:integer	:=20
+	totalwidth	:integer	:=28
 );
 port(
 	KEY		:in std_logic;
@@ -103,6 +100,7 @@ port(
 	SLlevel	:in std_logic_vector(15 downto 0);
 	RR		:in std_logic_vector(3 downto 0);
 	SR		:in std_logic_vector(4 downto 0);
+	RKS		:in std_logic_vector(4 downto 0);
 	
 	CURSTATE	:in envstate_t;
 	NXTSTATE	:out envstate_t;
@@ -177,19 +175,42 @@ port(
 );
 end component;
 
-component addsat
-generic(
-	datwidth	:integer	:=16
-);
-port(
-	INA		:in std_logic_vector(datwidth-1 downto 0);
-	INB		:in std_logic_vector(datwidth-1 downto 0);
-	
-	OUTQ	:out std_logic_vector(datwidth-1 downto 0);
-	OFLOW	:out std_logic;
-	UFLOW	:out std_logic
-);
-end component;
+function bitext(
+	indat:std_logic_vector;
+	inlen:integer;
+	outlen:integer
+)return std_logic_vector is
+variable outdat	:std_logic_vector(outlen-1 downto 0);
+begin
+	outdat(inlen-1 downto 0):=indat;
+	outdat(outlen-1 downto inlen):=(others=>indat(inlen-1));
+	return outdat;
+end function;
+
+function sat(
+	indat	:std_logic_vector;
+	inlen	:integer;
+	outlen	:integer
+)return std_logic_vector is
+variable outdat	:std_logic_vector(outlen-1 downto 0);
+variable all1	:std_logic_vector(inlen-outlen downto 0);
+variable all0	:std_logic_vector(inlen-outlen downto 0);
+begin
+	all1:=(others=>'1');
+	all0:=(others=>'0');
+	if(indat(inlen-1 downto outlen-1)=all0)then
+		outdat:=indat(outlen-1 downto 0);
+	elsif(indat(inlen-1 downto outlen-1)=all1)then
+		outdat:=indat(outlen-1 downto 0);
+	elsif(indat(inlen-1)='0')then
+		outdat(outlen-1):='0';
+		outdat(outlen-2 downto 0):=(others=>'1');
+	else
+		outdat(outlen-1):='1';
+		outdat(outlen-2 downto 0):=(others=>'0');
+	end if;
+	return outdat;
+end function;
 
 signal	WRCHANNEL	:integer range 0 to 7;
 signal	WRSLOT		:integer range 0 to 3;
@@ -232,7 +253,7 @@ signal	fmsft		:std_logic;
 signal	thitard,thitawd
 					:std_logic_vector(15 downto 0);
 signal	thitawr			:std_logic;
-signal	elevrd,elevwd	:std_logic_vector(19 downto 0);
+signal	elevrd,elevwd	:std_logic_vector(envwid-1 downto 0);
 signal	elevwr			:std_logic;
 signal	sin1a,sin2a,sin3a
 					:std_logic_vector(15 downto 0);
@@ -284,6 +305,8 @@ signal	FdBck	:std_logic_vector(2 downto 0);
 signal	KC		:std_logic_vector(6 downto 0);
 signal	KF		:std_logic_vector(5 downto 0);
 signal	Blk		:std_logic_vector(2 downto 0);
+signal	KCd		:std_logic_vector(4 downto 0);
+signal	RKS		:std_logic_vector(4 downto 0);
 signal	Fnum	:std_logic_vector(11 downto 0);
 signal	Note	:std_logic_vector(1 downto 0);
 signal	Mult	:std_logic_vector(3 downto 0);
@@ -297,6 +320,7 @@ signal	addfbm	:std_logic_vector(4 downto 0);
 signal	outa,outb,outc	:std_logic_vector(15 downto 0);
 
 signal	CHEN	:std_logic_vector(1 downto 0);
+signal	allkeyon	:std_logic;
 
 --enverope parameter
 signal	AR		:std_logic_vector(4 downto 0);
@@ -308,15 +332,15 @@ signal	SR		:std_logic_vector(4 downto 0);
 signal	SLEV	:std_logic_vector(15 downto 0);
 signal	TL		:std_logic_vector(6 downto 0);
 signal	AMSE	:std_logic;
-signal	envcalc	:std_logic;
 signal	TLaddr	:std_logic_vector(6 downto 0);
 signal	TLval	:std_logic_vector(15 downto 0);
 signal	TLlevel	:std_logic_vector(15 downto 0);
 signal	SLlevel	:std_logic_vector(15 downto 0);
 
-signal	add13,add23,add24,add234,add1234	:std_logic_vector(15 downto 0);
-signal	SUM0,SUM1	:std_logic_vector(15 downto 0);
-signal	sndadd00,sndadd01,sndadd10,sndadd11	:std_logic_vector(15 downto 0);
+signal	add13,add23,add24,add234,add1234	:std_logic_vector(18 downto 0);
+signal	SUM0,SUM1	:std_logic_vector(20 downto 0);
+signal	sndadd00,sndadd01,sndadd10,sndadd11	:std_logic_vector(20 downto 0);
+signal	sndLA,sndRA	:std_logic_Vector(15 downto 0);
 
 type envstate_array is array (natural range <>) of envstate_t; 
 signal	envarray	:envstate_array(0 to 31);
@@ -382,6 +406,9 @@ begin
 			REGWR<='0';
 			TARST<='0';
 			TBRST<='0';
+			if(allkeyon='1')then
+				KEY<=(others=>(others=>'1'));
+			end if;
 			if(BUSYR='1')then
 				if(BUSYC='0' and BUSYS='0')then
 					if(CPU_RADR/=x"ff")then
@@ -500,7 +527,13 @@ begin
 	RR<=	S5RDAT(3 downto 0);
 
 	Blk<=KC(6 downto 4);
-	K2F	:KEY2FNUM port map(KC(3 downto 0) & KF,fmclk,Fnum);
+	KCd<=KC(6 downto 2);
+	K2F	:KEY2FNUM_M port map(tonemode & KC(3 downto 0) & KF,fmclk,Fnum);
+	RKS<=	KCd						when KS="11" else
+			'0' &KCd(4 downto 1)	when KS="10" else
+			"00" & KCd(4 downto 2)	when KS="01" else
+			"000" & KCd(4 downto 3)	when KS="00" else
+			KCd;
 	
 	BUSY<=BUSYC or BUSYS or BUSYR;
 	
@@ -545,8 +578,8 @@ begin
 							INTBGN<='1';
 						end if;
 					when FS_MIX =>
-						sndL<=SUM0(15 downto (16-res));
-						sndR<=SUM1(15 downto (16-res));
+						sndLA<=sat(SUM0,21,16);
+						sndRA<=sat(SUM1,21,16);
 						FMSTATE<=FS_IDLE;
 					when others=>
 						FMSTATE<=FS_IDLE;
@@ -557,7 +590,7 @@ begin
 	end process;
 	
 	thitareg	:fmparram generic map(8,4,16) port map(CHANNELNO,SLOTNO,thitawd,thitawr,fmclk,CHANNELNO,SLOTNO,thitard,fmclk);
-	elevreg		:fmparram generic map(8,4,20) port map(CHANNELNO,SLOTNO,elevwd,elevwr,fmclk,CHANNELNO,SLOTNO,elevrd,fmclk);
+	elevreg		:fmparram generic map(8,4,envwid) port map(CHANNELNO,SLOTNO,elevwd,elevwr,fmclk,CHANNELNO,SLOTNO,elevrd,fmclk);
 	
 	process(fmclk,rstn)
 	variable vthita	:std_logic_vector(15 downto 0);
@@ -572,7 +605,6 @@ begin
 			TACOUNT<=(others=>'0');
 			TBCOUNT<=(others=>'0');
 			FLAG<=(others=>'0');
-			envcalc<='0';
 			thitawd<=(others=>'0');
 			thitawr<='0';
 			elevwr<='0';
@@ -584,12 +616,13 @@ begin
 			sndadd01<=(others=>'0');
 			sndadd10<=(others=>'0');
 			sndadd11<=(others=>'0');
+			allkeyon<='0';
 		elsif(fmclk' event and fmclk='1')then
 			if(BUSY='0' and sft='1')then
 				thitawr<='0';
 				elevwr<='0';
 				intend<='0';
-				envcalc<='0';
+				allkeyon<='0';
 				if(TARST='1')then
 					FLAG(0)<='0';
 				end if;
@@ -606,6 +639,9 @@ begin
 							if(TACOUNT="1111111111")then
 								if(TAEN='1')then
 									FLAG(0)<='1';
+								end if;
+								if(CSM='1')then
+									allkeyon<='1';
 								end if;
 								TACOUNT<=TARDAT;
 							else
@@ -726,17 +762,13 @@ begin
 							when "000" | "001" | "010" | "011" =>
 								coutc:= toutx3;
 							when "100" =>
-								coutc:=add24;
+								coutc:=sat(add24,19,16);
 							when "101" | "110" =>
-								coutc:=add234;
+								coutc:=sat(add234,19,16);
 							when "111" =>
-								coutc:=add1234;
+								coutc:=sat(add1234,19,16);
 							when others=>
 							end case;
-							op0out<=toutx0;
-							op1out<=toutx1;
-							op2out<=toutx2;
-							op3out<=toutx3;
 							case CHANNELNO is
 							when 0 =>
 								sndadd01<=(others=>'0');
@@ -747,12 +779,14 @@ begin
 							end case;
 							if(chenable(CHANNELNO)='1')then
 								if(CHEN(0)='1')then
-									sndadd00<=coutc(15) & coutc(15) & coutc(15) & coutc(15 downto 3);
+--									sndadd00<=coutc(15) & coutc(15) & coutc(15) & coutc(15 downto 3);
+									sndadd00<=bitext(coutc,16,21);
 								else
 									sndadd00<=(others=>'0');
 								end if;
 								if(CHEN(1)='1')then
-									sndadd10<=coutc(15) & coutc(15) & coutc(15) & coutc(15 downto 3);
+--									sndadd10<=coutc(15) & coutc(15) & coutc(15) & coutc(15 downto 3);
+									sndadd10<=bitext(coutc,16,21);
 								else
 									sndadd10<=(others=>'0');
 								end if;
@@ -773,23 +807,30 @@ begin
 		end if;
 	end process;
 
-	addr13	:addsat generic map(16) port map(toutx0,toutx2,add13,open,open);
-	addr23	:addsat generic map(16) port map(toutx1,toutx2,add23,open,open);
-	addr24	:addsat generic map(16) port map(toutx1,toutx3,add24,open,open);
-	addr234	:addsat generic map(16) port map(add23,toutx3,add234,open,open);
-	addr1234:addsat generic map(16) port map(add13,add24,add1234,open,open);
+	add13<=bitext(toutx0,16,19)+bitext(toutx2,16,19);
+	add23<=bitext(toutx1,16,19)+bitext(toutx2,16,19);
+	add24<=bitext(toutx1,16,19)+bitext(toutx3,16,19);
+	add234<=add23+bitext(toutx3,16,19);
+	add1234<=add13+add24;
+--	addr13	:addsat generic map(16) port map(toutx0,toutx2,add13,open,open);
+--	addr23	:addsat generic map(16) port map(toutx1,toutx2,add23,open,open);
+--	addr24	:addsat generic map(16) port map(toutx1,toutx3,add24,open,open);
+--	addr234	:addsat generic map(16) port map(add23,toutx3,add234,open,open);
+--	addr1234:addsat generic map(16) port map(add13,add24,add1234,open,open);
 	
-	sadd0	:addsat generic map(16) port map(sndadd00,sndadd01,SUM0,open,open);
-	sadd1	:addsat	generic map(16) port map(sndadd10,sndadd11,SUM1,open,open);
+	SUM0<=sndadd00+sndadd01;
+	SUM1<=sndadd10+sndadd11;
+--	sadd0	:addsat generic map(16) port map(sndadd00,sndadd01,SUM0,open,open);
+--	sadd1	:addsat	generic map(16) port map(sndadd10,sndadd11,SUM1,open,open);
 	
-	SFnum<=	"0000" & Fnum 						when Blk="111" else
-			"00000" & Fnum(11 downto 1)			when Blk="110" else
-			"000000" & Fnum(11 downto 2)			when Blk="101" else
-			"0000000" & Fnum(11 downto 3)		when Blk="100" else
-			"00000000" & Fnum(11 downto 4)		when Blk="011" else
-			"000000000" & Fnum(11 downto 5) 		when Blk="010" else
-			"0000000000" & Fnum(11 downto 6) 	when Blk="001" else
-			"00000000000" & Fnum(11 downto 7);
+	SFnum<=	"000" & Fnum & '0'					when Blk="111" else
+				"0000" & Fnum(11 downto 0)			when Blk="110" else
+				"00000" & Fnum(11 downto 1)		when Blk="101" else
+				"000000" & Fnum(11 downto 2)		when Blk="100" else
+				"0000000" & Fnum(11 downto 3)		when Blk="011" else
+				"00000000" & Fnum(11 downto 4) 	when Blk="010" else
+				"000000000" & Fnum(11 downto 5) 	when Blk="001" else
+				"0000000000" & Fnum(11 downto 6);
 				
 	process(SFnum,Mult)
 	variable SUM	:std_logic_vector(15 downto 0);
@@ -833,13 +874,14 @@ begin
 			
 	keyc<=	key(CHANNELNO)(SLOTNO);
 
-	env	:envcont generic map(20) port map(
+	env	:envcont generic map(envwid) port map(
 		KEY		=>keyc,
 		AR		=>AR,
 		DR		=>DR,
 		SLlevel	=>SLlevel,
 		RR		=>RR,
 		SR		=>SR,
+		RKS		=>RKS,
 		
 		CURSTATE	=>cenvst,
 		NXTSTATE	=>nenvst,
@@ -853,8 +895,7 @@ begin
 	
 	TLC	:TLtbl port map(TLaddr,fmclk,TLval);
 	envm	:muls16xu16 port map(sinthita,TLlevel,envsin,fmclk);
-	tlm	:muls16xu16 port map(envsin,elevwd(19 downto 4),toutc,fmclk);
-	monout<=TLlevel;
+	tlm	:muls16xu16 port map(envsin,elevwd(envwid-1 downto envwid-16),toutc,fmclk);
 	
 	process(fmclk,rstn)begin
 		if(rstn='0')then
@@ -866,5 +907,7 @@ begin
 		end if;
 	end process;
 	
+	sndL<=sndLA(15 downto 16-res);
+	sndR<=sndRA(15 downto 16-res);
 	
 end rtl;

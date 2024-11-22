@@ -1,3 +1,6 @@
 [submodule "mist-modules"]
 	path = mist-modules
 	url = https://github.com/mist-devel/mist-modules.git
+[submodule "jt51"]
+	path = jt51
+	url = https://github.com/jotego/jt51.git
